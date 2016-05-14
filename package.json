@@ -1,0 +1,27 @@
+{
+  "name": "@mfjs/core",
+  "version": "1.0.0",
+  "description": "abstract runtime library for @mfjs/compiler",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha",
+    "build-test": "mfjsc test/kit/noeff.js -o test/kit/dist",
+    "doc": "markdox index.js -o doc/api.md"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/awto/mfjs-core.git"
+  },
+  "keywords": [
+    "monad",
+    "linq"
+  ],
+  "devDependencies": {
+    "@mfjs/compiler": "1.0.0",
+    "expect.js": "^0.3.1",
+    "markdox": "^0.1.10",
+    "mocha": "^2.4.5"
+  },
+  "author": "Vitaliy Akimov",
+  "license": "MIT"
+}
