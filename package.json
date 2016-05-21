@@ -1,6 +1,6 @@
 {
   "name": "@mfjs/core",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "abstract runtime library for @mfjs/compiler",
   "main": "index.js",
   "scripts": {
