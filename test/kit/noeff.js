@@ -36,6 +36,16 @@ module.exports = function(M,it) {
       def.done();
     });
     context('with `for-in` statement', function() {
+      it('should work for empty objects', function(def) {
+        def.run(function() {
+          var obj = {};
+          for(var i in obj) {
+            def.rec('i'+i+obj[i]);
+          }
+          def.check();
+        });
+        def.done();
+      });
       it('should have the same semantics as js', function(def) {
         def.run(function() {
           var obj = {a:1,b:2,c:3};
@@ -46,6 +56,80 @@ module.exports = function(M,it) {
           def.check('ia1','ib2','ic3');
         });
         def.done();
+      });
+    });
+    context('with `for-of` statement', function() {
+      context('with arrays', function() {
+        it('should work for empty objects', function(def) {
+          def.run(function() {
+            var arr = [];
+            for(var i of arr) {
+              def.rec('i'+i+arr[i]);
+            }
+            def.check();
+          });
+          def.done();
+        });
+        it('should have the same semantics as js', function(def) {
+          def.run(function() {
+            var arr = [1,2,3];
+            for(var i of arr) {
+              def.rec('i'+i);
+            }
+            def.state.sort();
+            def.check('i1','i2','i3');
+          });
+          def.done();
+        });
+      });
+      context('without variables capture', function() {
+        M.option({varCapt:false});
+        it('should work for empty objects', function(def) {
+          def.run(function() {
+            var arr = [];
+            for(var i of arr) {
+              def.rec('i'+i+arr[i]);
+            }
+            def.check();
+          });
+          def.done();
+        });
+        it('should have the same semantics as js', function(def) {
+          def.run(function() {
+            var arr = [1,2,3];
+            for(var i of arr) {
+              def.rec('i'+i);
+            }
+            def.state.sort();
+            def.check('i1','i2','i3');
+          });
+          def.done();
+        });
+      });
+      context('with maps', function() {
+        it('should work for empty objects', function(def) {
+          def.run(function() {
+            var map = new Map();
+            for(var i of map) {
+              def.rec('i'+i[0]+i[1]);
+            }
+            def.check();
+          });
+          def.done();
+        });
+        it('should have the same semantics as js', function(def) {
+          def.run(function() {
+            var map = new Map();
+            map.set('a',1);
+            map.set('b',2);
+            map.set('c',3);
+            for(var i of map) {
+              def.rec('i'+i[0]+i[1]);
+            }
+            def.check('ia1','ib2','ic3');
+          });
+          def.done();
+        });
       });
     });
     context('with `for` statement', function() {

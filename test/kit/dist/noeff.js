@@ -14,6 +14,28 @@ module.exports = function (M, it) {
             });
         });
         context('with `for-in` statement', function () {
+            it('should work for empty objects', function (def) {
+                return M(def.run(function () {
+                    var obj;
+                    var i;
+                    var iter;
+                    obj = {};
+                    iter = M.forInIterator(obj);
+                    return M.forPar(function (iter) {
+                        return iter;
+                    }, function (iter) {
+                        i = iter.value;
+                        return def.rec('i' + i + obj[i]);
+                    }, function (iter) {
+                        iter = iter();
+                        return iter;
+                    }, iter).mapply(function () {
+                        def.check();
+                    });
+                })).mapply(function () {
+                    def.done();
+                });
+            });
             it('should have the same semantics as js', function (def) {
                 return M(def.run(function () {
                     var obj;
@@ -40,6 +62,162 @@ module.exports = function (M, it) {
                     });
                 })).mapply(function () {
                     def.done();
+                });
+            });
+        });
+        context('with `for-of` statement', function () {
+            context('with arrays', function () {
+                it('should work for empty objects', function (def) {
+                    return M(def.run(function () {
+                        var arr;
+                        var i;
+                        var iter;
+                        arr = [];
+                        iter = M.iteratorBuf(arr);
+                        return M.forPar(function (iter) {
+                            return iter;
+                        }, function (iter) {
+                            i = iter.value;
+                            return def.rec('i' + i + arr[i]);
+                        }, function (iter) {
+                            iter = iter();
+                            return iter;
+                        }, iter).mapply(function () {
+                            def.check();
+                        });
+                    })).mapply(function () {
+                        def.done();
+                    });
+                });
+                it('should have the same semantics as js', function (def) {
+                    return M(def.run(function () {
+                        var arr;
+                        var i;
+                        var iter;
+                        arr = [
+                            1,
+                            2,
+                            3
+                        ];
+                        iter = M.iteratorBuf(arr);
+                        return M.forPar(function (iter) {
+                            return iter;
+                        }, function (iter) {
+                            i = iter.value;
+                            return def.rec('i' + i);
+                        }, function (iter) {
+                            iter = iter();
+                            return iter;
+                        }, iter).mbind(function () {
+                            return def.state.sort();
+                        }).mapply(function () {
+                            def.check('i1', 'i2', 'i3');
+                        });
+                    })).mapply(function () {
+                        def.done();
+                    });
+                });
+            });
+            context('without variables capture', function () {
+                it('should work for empty objects', function (def) {
+                    return M(def.run(function () {
+                        var arr;
+                        var i;
+                        var iter;
+                        arr = [];
+                        iter = M.iterator(arr);
+                        return M.forPar(function () {
+                            return iter;
+                        }, function () {
+                            i = iter.value;
+                            return def.rec('i' + i + arr[i]);
+                        }, function () {
+                            iter = iter();
+                        }).mapply(function () {
+                            def.check();
+                        });
+                    })).mapply(function () {
+                        def.done();
+                    });
+                });
+                it('should have the same semantics as js', function (def) {
+                    return M(def.run(function () {
+                        var arr;
+                        var i;
+                        var iter;
+                        arr = [
+                            1,
+                            2,
+                            3
+                        ];
+                        iter = M.iterator(arr);
+                        return M.forPar(function () {
+                            return iter;
+                        }, function () {
+                            i = iter.value;
+                            return def.rec('i' + i);
+                        }, function () {
+                            iter = iter();
+                        }).mbind(function () {
+                            return def.state.sort();
+                        }).mapply(function () {
+                            def.check('i1', 'i2', 'i3');
+                        });
+                    })).mapply(function () {
+                        def.done();
+                    });
+                });
+            });
+            context('with maps', function () {
+                it('should work for empty objects', function (def) {
+                    return M(def.run(function () {
+                        var map;
+                        var i;
+                        var iter;
+                        map = new Map();
+                        iter = M.iteratorBuf(map);
+                        return M.forPar(function (iter) {
+                            return iter;
+                        }, function (iter) {
+                            i = iter.value;
+                            return def.rec('i' + i[0] + i[1]);
+                        }, function (iter) {
+                            iter = iter();
+                            return iter;
+                        }, iter).mapply(function () {
+                            def.check();
+                        });
+                    })).mapply(function () {
+                        def.done();
+                    });
+                });
+                it('should have the same semantics as js', function (def) {
+                    return M(def.run(function () {
+                        var map;
+                        var i;
+                        var iter;
+                        map = new Map();
+                        return M(map.set('a', 1)).mbind(function () {
+                            return map.set('b', 2);
+                        }).mbind(function () {
+                            return map.set('c', 3);
+                        }).mbind(function () {
+                            iter = M.iteratorBuf(map);
+                            return M.forPar(function (iter) {
+                                return iter;
+                            }, function (iter) {
+                                i = iter.value;
+                                return def.rec('i' + i[0] + i[1]);
+                            }, function (iter) {
+                                iter = iter();
+                                return iter;
+                            }, iter);
+                        }).mapply(function () {
+                            def.check('ia1', 'ib2', 'ic3');
+                        });
+                    })).mapply(function () {
+                        def.done();
+                    });
                 });
             });
         });

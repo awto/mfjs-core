@@ -31,41 +31,98 @@ module.exports = M;
  * 
  * It is not ES compatible, because ES iterator is mutable. This doesn't fit
  * well in monadic framework. 
- * The returned iterator is a function, calling it either
- * returns null if there are no other values or another function for next 
- * value with current value in field `value`
+ * @see M.iteratorBuf for iterator interface description
  * @function M.forInIterator
  * @param {Object} args
  * @return {Iterator}
  */
 M.forInIterator = function(obj) {
-  var i, iter, lst;
-  lst = [];
-  for (i in obj) {
-    lst.push(i);
-  }
-  iter = function(cur) {
-    var res;
-    res = function() {
-      var nxt;
-      nxt = cur + 1;
-      if (nxt < lst.length) {
-        return iter(cur + 1);
-      }
+  var arr = [];
+  for (var i in obj)
+    arr.push(i);
+  return arrayIterator(arr);
+};
+
+/**
+ * Adapts interface from ES iterators to mfjs compatible. The resulting 
+ * iterator still uses ES mutable one, so each step invalidates previous
+ * iterator. `M.iteratorBuf` may be used to make immutable one.
+ * 
+ * @see M.iteratorBuf for iterator interface description
+ * @function M.iterator
+ * @param {Any} arg iterable value (has `Symbol.iterator` method)
+ * @return {Iterator}
+ */
+M.iterator = function(arg) {
+  var cur = arg[Symbol.iterator]();
+  function iter() {
+    var val = cur.next();
+    if (val.done)
       return null;
+    var res = function() { return iter(); };
+    res.value = val.value;
+    return res;
+  };
+  return iter();
+};
+
+/** 
+ * Returns immutable mfjs iterator from iterable value. It buffers passed values
+ * allowing to return back to some position. There is a special implementation 
+ * for arrays without buffering.
+ *
+ * The returned iterator is a function, calling it either
+ * returns null if there are no other values or another function for next 
+ * value with current value in field `value`. There returned iterator is 
+ * immediately focused on the first element (so the function may return null) 
+ * if input collection is empty.
+ * @function M.iteratorBuf
+ * @param {Any} arg iterable value (has `Symbol.iterator` method)
+ * @return {Iterator}
+ */
+M.iteratorBuf = function(arg) {
+  var buf, cur, done;
+  if (Array.isArray(arg))
+    return arrayIterator(arg);
+  buf = [], cur = arg[Symbol.iterator]();
+  function iter(pos) {
+    var val, nxt, res = function() { return iter(pos+1); };
+    if (done)
+      return null;
+    if (buf.length > pos) {
+      res.value = buf[pos];
+    } else {
+      nxt = cur.next();
+      if (nxt.done) {
+        done = true;
+        return null;
+      }
+      buf.push(res.value = nxt.value);
+    }
+    return res;
+  }
+  return iter(0);
+};
+
+function arrayIterator(arr) {
+  function iter(cur) {
+    if (cur >= arr.length) 
+      return null;
+    var res = function() {
+      return iter(cur + 1);
     };
-    res.value = lst[cur];
+    res.value = arr[cur];
     return res;
   };
   return iter(0);
-};
+}
 
 /**
  * Class with default implementations for interface expected by mfjs compiler
  * output.
  * 
  * Extend it to get default implementations for most of required methods.
- * @class MonadDict
+ * @class M.MonadDict
  */
 function MonadDict() {}
 
@@ -329,19 +386,19 @@ MonadDict.prototype.scope = function(body) {
 };
 
 /*
- * Takes array of monadic values, concatenates them into single monadic
- * value returning all these answers. 
+ * Takes arbitrary number of monadic values, concatenates them into single 
+ * monadic value returning all these answers. 
  *
  * Default implementation uses `plus` and `empty`.
  *
  * @function MonadDict.alt
- * @param {Array} args
+ * @param {MonadVal*} args
  * @return {MonadVal}
  */
-MonadDict.prototype.alt = function(args) {
+MonadDict.prototype.alt = function() {
   var i, j, len, cur = this.empty();
-  for (j = 0, len = args.length; j < len; j++) {
-    i = args[j];
+  for (j = 0, len = arguments.length; j < len; j++) {
+    i = arguments[j];
     cur = this.plus(cur, i);
   }
   return cur;
@@ -575,7 +632,7 @@ M.empty = function() { return context.empty(); };
  * @param {Array} args
  * @return {MonadVal}
  */
-M.alt = function(args) { return context.alt(args); };
+M.alt = function() { return context.alt.apply(context,arguments); };
 
 
 /**
@@ -623,9 +680,9 @@ M.addMethods = function(proto, overwrite) {
       return this.mcontext["const"](this, v);
     };
   }
-  if (overwrite || !proto.pushTo) {
-    proto.mpushTo = function(v) {
-      return this.mcontext.pushTo(this, v);
+  if (overwrite || !proto.munshiftTo) {
+    proto.munshiftTo = function(v) {
+      return this.mcontext.unshiftTo(this, v);
     };
   }
   if (overwrite || !proto.plus) {
@@ -635,7 +692,7 @@ M.addMethods = function(proto, overwrite) {
   }
   if (overwrite || !proto.alt) {
     proto.malt = function(v) {
-      return this.mcontext.alt([this].concat(v));
+      return this.mcontext.alt.apply(this.mcontext,[this].concat(v));
     };
   }
   if (overwrite || !proto.opt) {
@@ -983,3 +1040,90 @@ function liftContext(ctx, func) {
     }
   };
 }
+
+M.Monad = Monad;
+/**
+  * Monadic value taking function's definitions from global context
+  *
+  * @param 
+  * @class M.Monad
+  */
+function Monad(inner) {
+  this.inner = inner;
+}
+
+/**
+  * Wraps monadic values in `M.Monad` objects
+  * @funtion M.wrapGlobal
+  * @param {MonadDict} def
+  * @return {MonadDict}
+  */
+M.wrapGlobal = function(def) {
+  return wrap(def,Monad);
+};
+
+Monad.prototype.coerce = function(val) {
+  if (val && val.constructor === Monad)
+    return val;
+  return new Monad(context.coerce(val));
+};
+
+function unpackM(val) {
+  if (val && val.constructor === Monad) {
+    return val.inner;
+  } else {
+    return context.coerce(val);
+  }
+}
+
+Monad.prototype.mpair = function(other) {
+  return context.pair(this.inner, other);
+};
+
+Monad.prototype.mbind = function(f) {
+  return context.bind(this.inner, f);
+};
+
+Monad.prototype.mbind = function(f) {
+  return context.bind(this, f);
+};
+
+Monad.prototype.mapply = function(f) {
+  return context.apply(this, f);
+};
+
+Monad.prototype.mjoin = function() {
+  return context.join(this);
+};
+
+Monad.prototype.mhandle = function(f) {
+  return context.handle(this, f);
+};
+
+Monad.prototype.mfinally = function(f) {
+  return context["finally"](this, f);
+};
+
+Monad.prototype.mconst = function(v) {
+  return context["const"](this, v);
+};
+
+Monad.prototype.munshiftTo = function(v) {
+  return context.unshiftTo(this, v);
+};
+
+Monad.prototype.mplus = function(v) {
+  return context.plus(this, v);
+};
+
+Monad.prototype.malt = function(v) {
+  return context.alt.apply(context,[this].concat(v));
+};
+
+Monad.prototype.mopt = function() {
+  return context.opt(this);
+};
+
+Monad.prototype.munpack = function() {
+  return context.unpack(this);
+};
