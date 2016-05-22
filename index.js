@@ -66,6 +66,16 @@ M.iterator = function(arg) {
   return iter();
 };
 
+function isArrayLike( obj ) {
+  if (Array.isArray(obj))
+    return false;
+	if (typeof obj === "function")
+		return false;
+	var length = !!obj && "length" in obj && obj.length;
+	return length === 0 ||
+		typeof length === "number" && length > 0 && (length - 1) in obj;
+}
+
 /** 
  * Returns immutable mfjs iterator from iterable value. It buffers passed values
  * allowing to return back to some position. There is a special implementation 
@@ -82,7 +92,7 @@ M.iterator = function(arg) {
  */
 M.iteratorBuf = function(arg) {
   var buf, cur, done;
-  if (Array.isArray(arg))
+  if (isArrayLike(arg))
     return arrayIterator(arg);
   buf = [], cur = arg[Symbol.iterator]();
   function iter(pos) {
