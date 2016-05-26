@@ -334,6 +334,18 @@ MonadDict.prototype.reify = function(v) {
   return v();
 };
 
+/* 
+ * This is a compiler directive for embedding monadic values. From 
+ * original code perspective it converts monadic value into pure.
+ * 
+ * @function MonadDict.reflect
+ * @param {MonadVal} m
+ * @return {Any}
+ */
+MonadDict.prototype.reflect = function(m) {
+  return m;
+};
+
 /*
  * Function to call at top level to get final result.
  * 
@@ -402,7 +414,7 @@ MonadDict.prototype.scope = function(body) {
  * Default implementation uses `plus` and `empty`.
  *
  * @function MonadDict.alt
- * @param {MonadVal*} args
+ * @param {MonadVal[]} args
  * @return {MonadVal}
  */
 MonadDict.prototype.alt = function() {
@@ -604,8 +616,17 @@ M.scope = function(body) { return context.scope(body); };
  * Calls current context `reify` method.
  * @function M.reify
  * @param {Function} arg
+ * @return {Any}
  */
 M.reify = function(arg) { return context.reify(arg); };
+
+/**
+ * Calls current context `reflect` method.
+ * @function M.reflect
+ * @param {MonadVal} arg
+ * @return {Any}
+ */
+M.reflect = function(arg) { return context.reflect(arg); };
 
 /**
  * Calls current context `repeat` method.
@@ -894,7 +915,6 @@ function defaults(inner) {
   return M.addContext(M.withControlByToken(inner));
 }
 
-
 M.wrap = wrap;
 /**
  * Takes monad definition and generates another definition where each definition
@@ -962,13 +982,13 @@ function wrap(inner, Wrap) {
     }
     return pack(inner.arr(r));
   };
-
   Wrapped.prototype.reify = function(v) {
-    return pack(inner.reify(v));
+    return unpack(inner.reify(v));
   };
-
+  Wrapped.prototype.reflect = function(v) {
+    return pack(inner.reflect(v))
+  };
   Wrapped.prototype.unpack = unpack;
-  
   Wrapped.prototype.run = function(f) {
     var args = Array.from(arguments);
     args[0] = function() {
@@ -976,19 +996,16 @@ function wrap(inner, Wrap) {
     };
     return inner.run.apply(inner, args);
   };
-
   Wrapped.prototype.repeat = function(f, arg) {
     return pack(inner.repeat(function(arg) {
       return unpack(f(arg));
     }, arg));
   };
-
   Wrapped.prototype.forPar = function(test, body, upd, arg) {
     return pack(inner.forPar(test, function(arg) {
       return unpack(body(arg));
     }, upd, arg));
   };
-
   Wrapped.prototype.block = function(f) {
     return pack(inner.block(function(l) {
       return unpack(f(function(arg) {

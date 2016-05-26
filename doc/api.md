@@ -30,9 +30,8 @@ Returns simple iterator for `for-in` statement implementation.
 
 It is not ES compatible, because ES iterator is mutable. This doesn't fit
 well in monadic framework. 
-The returned iterator is a function, calling it either
-returns null if there are no other values or another function for next 
-value with current value in field `value`
+
+See: M.iteratorBuf for iterator interface description
 
 ### Params:
 
@@ -42,7 +41,43 @@ value with current value in field `value`
 
 * **Iterator** 
 
-## MonadDict
+## M.iterator(arg)
+
+Adapts interface from ES iterators to mfjs compatible. The resulting 
+iterator still uses ES mutable one, so each step invalidates previous
+iterator. `M.iteratorBuf` may be used to make immutable one.
+
+See: M.iteratorBuf for iterator interface description
+
+### Params:
+
+* **Any** *arg* iterable value (has `Symbol.iterator` method)
+
+### Return:
+
+* **Iterator** 
+
+## M.iteratorBuf(arg)
+
+Returns immutable mfjs iterator from iterable value. It buffers passed values
+allowing to return back to some position. There is a special implementation 
+for arrays without buffering.
+
+The returned iterator is a function, calling it either
+returns null if there are no other values or another function for next 
+value with current value in field `value`. There returned iterator is 
+immediately focused on the first element (so the function may return null) 
+if input collection is empty.
+
+### Params:
+
+* **Any** *arg* iterable value (has `Symbol.iterator` method)
+
+### Return:
+
+* **Iterator** 
+
+## M.MonadDict
 
 Class with default implementations for interface expected by mfjs compiler
 output.
@@ -225,6 +260,19 @@ implementations may also do something else here.
 
 * **Any** depends on monad implementation
 
+## MonadDict.reflect(m)
+
+This is a compiler directive for embedding monadic values. From 
+original code perspective it converts monadic value into pure.
+
+### Params:
+
+* **MonadVal** *m* 
+
+### Return:
+
+* **Any** 
+
 ## MonadDict.run(f)
 
 Function to call at top level to get final result.
@@ -262,7 +310,8 @@ No default implementation.
 
 WARNING: these are not continuations. The function is here only to support JS
 control operations (like `break`, `continue`) and typical monad will accept
-it only if the exit function called once and only from within `body`.
+it only if the exit function called once and only from within `body`. This is
+just a special kind of exception.
 
 ### Params:
 
@@ -286,14 +335,14 @@ Same as `M.block` but used in top level of functions for `return` and `yield`.
 
 ## MonadDict.alt(args)
 
-Takes array of monadic values, concatenates them into single monadic
-value returning all these answers. 
+Takes arbitrary number of monadic values, concatenates them into single 
+monadic value returning all these answers. 
 
 Default implementation uses `plus` and `empty`.
 
 ### Params:
 
-* **Array** *args* 
+* **Array.\<MonadVal>** *args* 
 
 ### Return:
 
@@ -517,6 +566,22 @@ Calls current context `reify` method.
 
 * **Function** *arg* 
 
+### Return:
+
+* **Any** 
+
+## M.reflect(arg)
+
+Calls current context `reflect` method.
+
+### Params:
+
+* **MonadVal** *arg* 
+
+### Return:
+
+* **Any** 
+
 ## M.repeat(body, arg)
 
 Calls current context `repeat` method.
@@ -692,6 +757,26 @@ and reverting it to the old value on exit.
 ### Return:
 
 * **Function** 
+
+## M.Monad
+
+Monadic value taking function's definitions from global context
+
+### Params:
+
+* ** 
+
+## wrapGlobal(def)
+
+Wraps monadic values in `M.Monad` objects
+
+### Params:
+
+* **MonadDict** *def* 
+
+### Return:
+
+* **MonadDict** 
 
 <!-- End index.js -->
 
