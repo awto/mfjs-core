@@ -676,37 +676,37 @@ M.alt = function() { return context.alt.apply(context,arguments); };
  *                         they are already defined
  */
 M.addMethods = function(proto, overwrite) {
-  if (overwrite || !proto.pair) {
+  if (overwrite || !proto.mpair) {
     proto.mpair = function(other) {
       return this.mcontext.pair(this, other);
     };
   }
-  if (overwrite || !proto.bind) {
+  if (overwrite || !proto.mbind) {
     proto.mbind = function(f) {
       return this.mcontext.bind(this, f);
     };
   }
-  if (overwrite || !proto.apply) {
+  if (overwrite || !proto.mapply) {
     proto.mapply = function(f) {
       return this.mcontext.apply(this, f);
     };
   }
-  if (overwrite || !proto.join) {
+  if (overwrite || !proto.mjoin) {
     proto.mjoin = function() {
       return this.mcontext.join(this);
     };
   }
-  if (overwrite || !proto.handle) {
+  if (overwrite || !proto.mhandle) {
     proto.mhandle = function(f) {
       return this.mcontext.handle(this, f);
     };
   }
-  if (overwrite || !proto["finally"]) {
+  if (overwrite || !proto.mfinally) {
     proto.mfinally = function(f) {
       return this.mcontext["finally"](this, f);
     };
   }
-  if (overwrite || !proto["const"]) {
+  if (overwrite || !proto.mconst) {
     proto.mconst = function(v) {
       return this.mcontext["const"](this, v);
     };
@@ -716,22 +716,22 @@ M.addMethods = function(proto, overwrite) {
       return this.mcontext.unshiftTo(this, v);
     };
   }
-  if (overwrite || !proto.plus) {
+  if (overwrite || !proto.mplus) {
     proto.mplus = function(v) {
       return this.mcontext.plus(this, v);
     };
   }
-  if (overwrite || !proto.alt) {
+  if (overwrite || !proto.malt) {
     proto.malt = function(v) {
       return this.mcontext.alt.apply(this.mcontext,[this].concat(v));
     };
   }
-  if (overwrite || !proto.opt) {
+  if (overwrite || !proto.mopt) {
     proto.mopt = function() {
       return this.mcontext.opt(this);
     };
   }
-  if (overwrite || !proto.unpack) {
+  if (overwrite || !proto.munpack) {
     proto.munpack = function() {
       return this.mcontext.unpack(this);
     };
