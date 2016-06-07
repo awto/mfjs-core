@@ -77,320 +77,32 @@ if input collection is empty.
 
 * **Iterator** 
 
-## M.MonadDict
+## M.completeMonad(initial)
 
-Class with default implementations for interface expected by mfjs compiler
-output.
+Simply copies all definitions from one definition to another.
 
-Extend it to get default implementations for most of required methods.
-
-## MonadDict.pure(v)
-
-Constructs monadic value with inner value `v`.
-
-No default implementation.
+If a few monad definitions are used in a program it is worth 
+they are cloned first to get same hidden class. 
 
 ### Params:
 
-* **Any** *v* 
+* **MonadDict** *initial* definitions
 
 ### Return:
 
-* **MonadVal** 
+* **MonadDict** complete definition
 
-## MonadDict.raise(v)
+## M.completeMonad(initial)
 
-Constructs monadic value representing exception.
-
-No default implementation.
+Adds not implemented methods for monad definition object
 
 ### Params:
 
-* **Any** *v* 
+* **MonadDict** *initial* definitions
 
 ### Return:
 
-* **MonadVal** 
-
-## MonadDict.coerce(v)
-
-Coercing value, by default always returns argument value, so the 
-function is required to implement if Monad needs coercion.
-
-By default simply returns its argument assuming no coercion support.
-
-### Params:
-
-* **MonadVal|Any** *v* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.apply(v, f)
-
-Applies function `f` to monad inner value and returns monad with the same 
-structure but with inner value substituted by result of `f(v)`.
-
-Default implementation uses `bind` and `pure`.
-
-### Params:
-
-* **MonadVal|Any** *v* 
-* **Function** *f* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.bind(v, f)
-
-Applies inner value of monadic value `v` to function `f`.
-
-Default implementation uses `join` and `apply`.
-
-### Params:
-
-* **MonadVal|Any** *v* 
-* **Function** *f* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.pair(a, b)
-
-Helper function to simplify `arr` implementation. It only takes two monadic 
-arguments and must return monadic value of two elements array with inner
-values of arguments.
-Default implementation uses `bind` and `apply`.
-
-### Params:
-
-* **MonadVal|Any** *a* 
-* **MonadVal|Any** *b* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.arr(v)
-
-Converts array of monadic values to monadic value of array of their inner 
-values.
-
-Default implementation uses `pure`, `apply` and `pair`.
-
-### Params:
-
-* **Array** *v* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.join(v)
-
-Takes monadic value of monadic value of some type and returns monadic
-that type.
-
-Should be equivalent to:
-
-     v => bind(v, (i) => i)
-
-Default implementation uses `bind`.
-
-### Params:
-
-* **MonadVal** *v* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.repeat(body, arg)
-
-Simply executes function `body` infinitely, the function receives `arg`
-as argument of the first iteration and on next iteration it uses result
-of the previous for this.
-
-Default implementation uses `bind`, `coerce`.
-
-### Params:
-
-* **Function** *body* 
-* **Any** *arg* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.forPar(test, body, upd, arg)
-
-Simplified encoding of `for` statement.
-
-It is assumed each iteration doesn't depend on another so they may be run
-in parallel. The `arg` parameter is passed to all functions on the first 
-iteration, and on next iterations result of `upd` is used instead.
-
-Default implementation uses `bind`, `pure`.
-
-### Params:
-
-* **PureFunction** *test* 
-* **Function** *body* 
-* **PureFunction** *upd* 
-* **Any** *arg* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.reify(f)
-
-This is a compiler directive making it not to treat result value
-as effectful and not translate it into pure one. But some monads
-implementations may also do something else here.
-
-### Params:
-
-* **Function** *f* 
-
-### Return:
-
-* **Any** depends on monad implementation
-
-## MonadDict.reflect(m)
-
-This is a compiler directive for embedding monadic values. From 
-original code perspective it converts monadic value into pure.
-
-### Params:
-
-* **MonadVal** *m* 
-
-### Return:
-
-* **Any** 
-
-## MonadDict.run(f)
-
-Function to call at top level to get final result.
-
-### Params:
-
-* **Function** *f* 
-
-### Return:
-
-* **Any** depends on monad implementation
-
-## MonadDict.finally(a, f)
-
-Executes function `f` and runs monadic value returned after
-running `a` regardless it is succeed or raised exception.
-Default implementation uses `bind`, `raise`, `handle`.
-
-### Params:
-
-* **MonadVal** *a* 
-* **Function** *f* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.block(body)
-
-Executes function `body` passing it another function as arguments. 
-Calling the passed function will exit the block with value provided as 
-its argument.
-
-No default implementation.
-
-WARNING: these are not continuations. The function is here only to support JS
-control operations (like `break`, `continue`) and typical monad will accept
-it only if the exit function called once and only from within `body`. This is
-just a special kind of exception.
-
-### Params:
-
-* **Function** *body* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.scope Default implementation simply redirects to `block`.(f)
-
-Same as `M.block` but used in top level of functions for `return` and `yield`.
-
-### Params:
-
-* **Function** *f* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.alt(args)
-
-Takes arbitrary number of monadic values, concatenates them into single 
-monadic value returning all these answers. 
-
-Default implementation uses `plus` and `empty`.
-
-### Params:
-
-* **Array.\<MonadVal>** *args* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.empty(args)
-
-Returns monad without answers for monads implementing Alternative interface.
-
-Default implementation uses `alt`.
-
-### Params:
-
-* **Array** *args* 
-
-### Return:
-
-* **MonadVal** 
-
-## MonadDict.opt(args)
-
-Optional value. For monads implementing Alternative interface
-it returns monadic value with number of answers in v + one 
-undefined answer.
-Default implementation uses `plus` and `pure`.
-
-### Params:
-
-* **Array** *args* 
-
-### Return:
-
-* **MonadVal** 
-
-## plus(l, r)
-
-Helper function to simplify `alt` definition. Concatenates all 
-answers from l and r into single monadic value with all the answers.
-Default implementation uses `alt`.
-
-### Params:
-
-* **MonadVal** *l* 
-* **MonadVal** *r* 
-
-### Return:
-
-* **MonadVal** 
+* **MonadDict** complete definition
 
 ## MonadDict.const(a, arg)
 
@@ -437,7 +149,7 @@ For wrapped monadic values with will return value stored in it.
 
 ## M.run(defs, fun)
 
-Calls `run` from current context.
+Function to call at top level to get final result.
 
 ### Params:
 
@@ -460,7 +172,7 @@ code.
 
 ## M.pure(value)
 
-Calls current context `pure` method.
+Constructs monadic value with inner value `v`.
 
 ### Params:
 
@@ -472,7 +184,7 @@ Calls current context `pure` method.
 
 ## M.raise(value)
 
-Calls current context `raise` method.
+Constructs monadic value representing exception.
 
 ### Params:
 
@@ -498,7 +210,10 @@ value coercion procedure in case of no exceptions.
 
 ## M.apply(v, f)
 
-Calls current context `apply` method
+Applies function `f` to monad inner value and returns monad with the same 
+structure but with inner value substituted by result of `f(v)`.
+
+Default implementation uses `bind` and `pure`.
 
 ### Params:
 
@@ -511,7 +226,9 @@ Calls current context `apply` method
 
 ## M.bind(v, f)
 
-Calls current context `apply` method
+Applies inner value of monadic value `v` to function `f`.
+
+Default implementation uses `join` and `apply`.
 
 ### Params:
 
@@ -522,9 +239,63 @@ Calls current context `apply` method
 
 * **MonadVal** 
 
+## M.finally(a, f)
+
+Executes function `f` and runs monadic value returned after
+running `a` regardless it is succeed or raised exception.
+Default implementation uses `bind`, `raise`, `handle`.
+
+### Params:
+
+* **MonadVal** *a* 
+* **Function** *f* 
+
+### Return:
+
+* **MonadVal** 
+
+## M.join(v)
+
+Takes monadic value of monadic value of some type and returns monadic
+that type.
+
+Should be equivalent to:
+
+     v => bind(v, (i) => i)
+
+Default implementation uses `bind`.
+
+### Params:
+
+* **MonadVal** *v* 
+
+### Return:
+
+* **MonadVal** 
+
+## M.pair(a, b)
+
+Helper function to simplify `arr` implementation. It only takes two monadic 
+arguments and must return monadic value of two elements array with inner
+values of arguments.
+
+Default implementation uses `bind` and `apply` or `arr`.
+
+### Params:
+
+* **MonadVal|Any** *a* 
+* **MonadVal|Any** *b* 
+
+### Return:
+
+* **MonadVal** 
+
 ## M.arr(v)
 
-Calls current context `arr` method.
+Converts array of monadic values to monadic value of array of their inner 
+values.
+
+Default implementation uses `pure`, `apply` and `pair`.
 
 ### Params:
 
@@ -536,7 +307,11 @@ Calls current context `arr` method.
 
 ## M.block(body)
 
-Calls current context `block` method.
+Executes function `body` passing it another function as arguments. 
+Calling the passed function will exit the block with value provided as 
+its argument.
+
+No default implementation.
 
 ### Params:
 
@@ -548,7 +323,8 @@ Calls current context `block` method.
 
 ## M.scope(body)
 
-Calls current context `scope` method.
+Same as `M.block` but used in top level of functions for `return` and `yield`.
+Default implementation simply redirects to `block`.
 
 ### Params:
 
@@ -560,7 +336,9 @@ Calls current context `scope` method.
 
 ## M.reify(arg)
 
-Calls current context `reify` method.
+This is a compiler directive making it not to treat result value
+as effectful and not translate it into pure one. But some monads
+implementations may also do something else here.
 
 ### Params:
 
@@ -572,7 +350,8 @@ Calls current context `reify` method.
 
 ## M.reflect(arg)
 
-Calls current context `reflect` method.
+This is a compiler directive for embedding monadic values. From 
+original code perspective it converts monadic value into pure.
 
 ### Params:
 
@@ -584,7 +363,11 @@ Calls current context `reflect` method.
 
 ## M.repeat(body, arg)
 
-Calls current context `repeat` method.
+Simply executes function `body` infinitely, the function receives `arg`
+as argument of the first iteration and on next iteration it uses result
+of the previous for this.
+
+Default implementation uses `bind`, `coerce`.
 
 ### Params:
 
@@ -597,7 +380,13 @@ Calls current context `repeat` method.
 
 ## M.forPar(test, body, upd, arg)
 
-Calls current context `forPar` method.
+Simplified encoding of `for` statement.
+
+It is assumed each iteration doesn't depend on another so they may be run
+in parallel. The `arg` parameter is passed to all functions on the first 
+iteration, and on next iterations result of `upd` is used instead.
+
+Default implementation uses `bind`, `pure`.
 
 ### Params:
 
@@ -612,7 +401,9 @@ Calls current context `forPar` method.
 
 ## M.empty()
 
-Calls current context `empty` method.
+Returns monad without answers for monads implementing Alternative interface.
+
+Default implementation uses `alt`.
 
 ### Return:
 
@@ -620,7 +411,40 @@ Calls current context `empty` method.
 
 ## M.alt(args)
 
-Calls current context `alt` method.
+Takes arbitrary number of monadic values, concatenates them into single 
+monadic value returning all these answers. 
+
+Default implementation uses `plus` and `empty`.
+
+### Params:
+
+* **Array** *args* 
+
+### Return:
+
+* **MonadVal** 
+
+## plus(l, r)
+
+Helper function to simplify `alt` definition. Concatenates all 
+answers from l and r into single monadic value with all the answers.
+Default implementation uses `alt`.
+
+### Params:
+
+* **MonadVal** *l* 
+* **MonadVal** *r* 
+
+### Return:
+
+* **MonadVal** 
+
+## MonadDict.opt(args)
+
+Optional value. For monads implementing Alternative interface
+it returns monadic value with number of answers in v + one 
+undefined answer.
+Default implementation uses `plus` and `pure`.
 
 ### Params:
 
@@ -655,7 +479,7 @@ into `this.mcontext` field and initializes the field with `defs`.
 
 * **MonadDict** 
 
-## M.withControlByToken(inner)
+## M.addControlByToken(inner)
 
 Adds default implementation of control operators and exception if 
 they are not defined already. 
@@ -689,17 +513,17 @@ See: M.liftContext
 
 * **MonadDict** monad definition with the new functionality
 
-## M.defaults(inner)
+## M.addCoerce(inner)
 
-Combination of control by token and context. 
+Adds coercing to all function's result expecting monadic value
 
 ### Params:
 
-* **MonadDict** *inner* original monad definition
+* **MonadDict** *inner* monad definition to add new functionality to
 
 ### Return:
 
-* **MonadDict** 
+* **MonadDict** monad definition with the new functionality
 
 ## M.wrap(inner, Wrap)
 
@@ -715,6 +539,29 @@ Function.
 
 * **MonadDict** *inner* original monad definition
 * **Function** *Wrap* wrap constructor for wrapper
+
+### Return:
+
+* **MonadDict** 
+
+## M.defaults(inner, options)
+
+Runs definitions transformations based on specified set of options.
+
+Options:
+* wrap - constructor function used for wrapped value, 
+         it should construct objects with inner field
+* context - boolean or "run" string for only wrapping run method,
+            default is true
+* coerce - boolean for adding coercions to functions returning 
+           monadic values, default is true
+* control - string "token" for adding control operators implementation
+            using special token passing
+
+### Params:
+
+* **MonadDict** *inner* original monad definition
+* **Object** *options* 
 
 ### Return:
 

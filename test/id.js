@@ -5,8 +5,8 @@ function IdM(inner) {
   this.inner = inner;
 }
 
-var Id = M.addContext(M.wrap(idDef, IdM));
-M.completePrototype(Id,IdM.prototype);
+var Id = M.defaults(idDef,{wrap: IdM});
+// M.completePrototype(Id,IdM.prototype);
 
 var Kit = require('./kit/dist/noeff');
 Kit(M,function(txt,f) {

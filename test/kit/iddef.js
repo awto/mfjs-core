@@ -1,23 +1,24 @@
 var M = require('../../index');
 
-var idDef = new M.MonadDict();
-idDef.pure = idDef.coerce = function(a) { return a; };
-idDef.bind = function(a, f) { return f(a); };
-idDef.repeat = function(f, a) {
-  for(var n = a;!n || n.constructor !== this.Unwind;n = f(n));
-  return n;
-};
-idDef.forPar = function(test, body, upd, arg) {
-  while(test(arg)) {
-    res = body(arg);
-    if (res && res.constructor === this.Unwind)
-      return res;
-    arg = upd(arg);
-  }
-  return arg;
+var idDef = {
+  pure: function(a) { return a; },
+  coerce: function(a) { return a; },
+  bind: function(a, f) { return f(a); },
+  repeat: function(f, a) {
+    for(var n = a;!n || !n.unwindToken;n = f(n));
+    return n;
+  },
+  forPar: function(test, body, upd, arg) {
+    while(test(arg)) {
+      res = body(arg);
+      if (res && res.unwindToken)
+        return res;
+      arg = upd(arg);
+    }
+    return arg;
+  },
+  run: function(f) { return f(); }
 };
 
-idDef.run = function(f) { return f(); };
-
-module.exports = M.withControlByToken(idDef);
+module.exports = M.addControlByToken(M.completeMonad(idDef));
 

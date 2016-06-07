@@ -128,339 +128,191 @@ function arrayIterator(arr) {
 }
 
 /**
- * Class with default implementations for interface expected by mfjs compiler
- * output.
- * 
- * Extend it to get default implementations for most of required methods.
- * @class M.MonadDict
- */
-function MonadDict() {}
-
-M.MonadDict = MonadDict;
-
-/**
- * Constructs monadic value with inner value `v`.
+ * Simply copies all definitions from one definition to another.
  *
- * No default implementation.
- * @function MonadDict.pure
- * @param {Any} v
- * @return {MonadVal}
+ * If a few monad definitions are used in a program it is worth 
+ * they are cloned first to get same hidden class. 
+ * @function M.completeMonad
+ * @param {MonadDict} initial definitions
+ * @return {MonadDict} complete definition
  */
-MonadDict.prototype.pure = function(v) {
-  throw new Error('pure is not implemented');
-};
+M.clone = clone;
+function clone(from,to) {
+  var fcoerce = from.coerce;
+  if (!to)
+    to = fcoerce ? function(v) { return fcoerce(v); } : {}
+  to.coerce = fcoerce;
+  to.pure = from.pure;
+  to.bind = from.bind;
+  to.block = from.block;
+  to.scope = from.scope;
+  to.apply = from.apply;
+  to.raise = from.raise;
+  to.handle = from.handle;
+  to["finally"] = from["finally"];
+  to.pair = from.pair;
+  to.arr = from.arr;
+  to.empty = from.empty;
+  to.alt = from.alt;
+  to.plus = from.plus;
+  to.repeat = from.repeat;
+  to.forPar = from.forPar;
+  to.pack = from.pack;
+  to.unpack = from.unpack;
+  to.run = from.run;
+  to.reflect = from.reflect;
+  to.reify = from.reify;
+  to["const"] = from["const"];
+  to.unshiftTo = from.unshiftTo;
+  return to;
+}
 
 /**
- * Constructs monadic value representing exception.
- *
- * No default implementation.
- * @function MonadDict.raise
- * @param {Any} v
- * @return {MonadVal}
+ * Adds not implemented methods for monad definition object
+ * @function M.completeMonad
+ * @param {MonadDict} initial definitions
+ * @return {MonadDict} complete definition
  */
-MonadDict.prototype.raise = function(v) {
-  throw new Error('raise is not implemented');
-};
-
-/**
- * Coercing value, by default always returns argument value, so the 
- * function is required to implement if Monad needs coercion.
- *
- * By default simply returns its argument assuming no coercion support.
- * @function MonadDict.coerce
- * @param {MonadVal|Any} v
- * @return {MonadVal}
-*/
-MonadDict.prototype.coerce = function(v) {
-  return v;
-};
-
-/**
- * Applies function `f` to monad inner value and returns monad with the same 
- * structure but with inner value substituted by result of `f(v)`.
- *
- * Default implementation uses `bind` and `pure`.
- * @function MonadDict.apply
- * @param {MonadVal|Any} v
- * @param {Function} f
- * @return {MonadVal}
- */
-MonadDict.prototype.apply = function(a, f) {
-  var m = this;
-  return this.bind(a, function(v) {
-    return m.pure(f(v));
-  });
-};
-
-/**
- * Applies inner value of monadic value `v` to function `f`.
- *
- * Default implementation uses `join` and `apply`.
- * @function MonadDict.bind
- * @param {MonadVal|Any} v
- * @param {Function} f
- * @return {MonadVal}
- */
-MonadDict.prototype.bind = function(a, f) {
-  var m = this;
-  return this.join(this.apply(a, function(v) {
-    return m.coerce(f(v));
-  }));
-};
-
-/**
- * Helper function to simplify `arr` implementation. It only takes two monadic 
- * arguments and must return monadic value of two elements array with inner
- * values of arguments.
- * Default implementation uses `bind` and `apply`.
- * @function MonadDict.pair
- * @param {MonadVal|Any} a
- * @param {MonadVal|Any} b
- * @return {MonadVal}
- */
-MonadDict.prototype.pair = function(a, b) {
-  var m = this;
-  return this.bind(a, function(av) {
-    return m.apply(b, function(bv) {
-      return [av, bv];
-    });
-  });
-};
-
-/**
- * Converts array of monadic values to monadic value of array of their inner 
- * values.
- *
- * Default implementation uses `pure`, `apply` and `pair`.
- * @function MonadDict.arr
- * @param {Array} v
- * @return {MonadVal}
- */
-MonadDict.prototype.arr = function(v) {
-  switch (v.length) {
-  case 0:
-    return this.pure([]);
-  case 1:
-    return this.apply(v[0], function(v) {
-      return [v];
-    });
-  case 2:
-    return this.pair(v[0], v[1]);
-  default:
-    return this.apply(this.pair(v[0], v(v.slice(1))), function(arg1) {
-      return [arg1[0]].concat(arg1[1]);
-    });
+M.completeMonad = completeMonad;
+function completeMonad(defs) {
+  var pure = defs.pure,
+      bind = defs.bind,
+      apply = defs.apply,
+      coerce = defs.coerce,
+      join = defs.join,
+      pair = defs.pair,
+      arr = defs.arr,
+      alt = defs.alt,
+      plus = defs.plus,
+      empty = defs.empty,
+      mconst = defs["const"],
+      unshiftTo = defs.unshiftTo
+      ;
+  if (!pure)
+    throw new Error("pure function must defined");
+  if (!coerce)
+    coerce = defs.coerce = function(v) { return v; };
+  if (!bind) {
+    if (join && apply)
+      bind = defs.bind = function(a, f) { return join(apply(a,f)); }
+    else
+      bind = defs.bind = function(a, f) { return a.mbind(f); }
   }
-};
-
-/**
- * Takes monadic value of monadic value of some type and returns monadic
- * that type.
- *
- * Should be equivalent to:
- * 
- *      v => bind(v, (i) => i)
- *
- * Default implementation uses `bind`.
- * @function MonadDict.join
- * @param {MonadVal} v
- * @return {MonadVal}
- */
-MonadDict.prototype.join = function(v) {
-  return this.bind(v, function(v) {
-    return v;
-  });
-};
-
-/*
- * Simply executes function `body` infinitely, the function receives `arg`
- * as argument of the first iteration and on next iteration it uses result
- * of the previous for this.
- *
- * Default implementation uses `bind`, `coerce`.
- *
- * @function MonadDict.repeat
- * @param {Function} body
- * @param {Any} arg
- * @return {MonadVal}
- */
-MonadDict.prototype.repeat = function(body, arg) {
-  var m = this,
-      iter = function(arg) {
-        return m.bind(m.coerce(body(arg)), iter);
+  if (!apply) {
+    if (bind)
+      apply = defs.apply = function(a, f) {
+        return bind(a, function(v) { return pure(f(v)); });
       };
-  return iter(arg);
-};
-
-/*
- * Simplified encoding of `for` statement.
- *
- * It is assumed each iteration doesn't depend on another so they may be run
- * in parallel. The `arg` parameter is passed to all functions on the first 
- * iteration, and on next iterations result of `upd` is used instead.
- *
- * Default implementation uses `bind`, `pure`.
- *
- * @function MonadDict.forPar
- * @param {PureFunction} test
- * @param {Function} body
- * @param {PureFunction} upd
- * @param {Any} arg
- * @return {MonadVal}
- */
-MonadDict.prototype.forPar = function(test, body, upd, arg) {
-  var m = this,
+    else
+      apply = defs.apply = function(a, f) { return a.mapply(f); };
+  }
+  if (!join)
+    join = defs.join = function(m) { return bind(m, function(v) { return v; }); }
+  if (!pair) {
+    if (arr)
+      pair = defs.pair = function(a,b) { return arr([a,b]); };
+    else
+      pair = defs.pair = function(a,b) {
+        return bind(a, function(av) {
+          return apply(b, function(bv) {
+            return [av, bv];
+          });
+        });
+      };
+  }
+  if (!arr)
+    defs.arr = arr = function(v) {
+      switch (v.length) {
+      case 0:
+        return this.pure([]);
+      case 1:
+        return this.apply(v[0], function(v) {
+          return [v];
+        });
+      case 2:
+        return this.pair(v[0], v[1]);
+      default:
+        return this.apply(this.pair(v[0], v(v.slice(1))), function(arg1) {
+          return [arg1[0]].concat(arg1[1]);
+        });
+      }
+    };
+  if (!defs.repeat)
+    defs.repeat = function(body, arg) {
+      iter = function(arg) {
+        return bind(body(arg), iter);
+      };
+      return iter(arg);
+    };
+  if (!defs.forPar)
+    defs.forPar = function(test, body, upd, arg) {
       iter = function(arg) {
         if (test(arg)) {
-          return m.bind(body(arg), function() {
+          return bind(body(arg), function() {
             return iter(upd(arg));
           });
         } else {
-          return m.pure(arg);
+          return pure(arg);
         }
       };
-  return iter(arg, null);
-};
-
-/*
- * This is a compiler directive making it not to treat result value
- * as effectful and not translate it into pure one. But some monads
- * implementations may also do something else here.
- * @function MonadDict.reify
- * @param {Function} f
- * @return {Any} depends on monad implementation
- */
-MonadDict.prototype.reify = function(v) {
-  return v();
-};
-
-/* 
- * This is a compiler directive for embedding monadic values. From 
- * original code perspective it converts monadic value into pure.
- * 
- * @function MonadDict.reflect
- * @param {MonadVal} m
- * @return {Any}
- */
-MonadDict.prototype.reflect = function(m) {
-  return m;
-};
-
-/*
- * Function to call at top level to get final result.
- * 
- * @function MonadDict.run
- * @param {Function} f
- * @return {Any} depends on monad implementation
- */
-MonadDict.prototype.run = function(f) {
-  return this.reify(f);
-};
-
-/*
- * Executes function `f` and runs monadic value returned after
- * running `a` regardless it is succeed or raised exception.
- * Default implementation uses `bind`, `raise`, `handle`.
- * @function MonadDict.finally
- * @param {MonadVal} a
- * @param {Function} f
- * @return {MonadVal}
- */
-MonadDict.prototype["finally"] = function(a, f) {
-  var m  = this;
-  return this.bind(this.handle(a, function(e) {
-    return m.bind(f(), function() {
-      return m.raise(e);
-    });
-  }), function(v) {
-    return m["const"](f(), v);
-  });
-};
-
-/*
- * Executes function `body` passing it another function as arguments. 
- * Calling the passed function will exit the block with value provided as 
- * its argument.
- *
- * No default implementation.
- *
- * WARNING: these are not continuations. The function is here only to support JS
- * control operations (like `break`, `continue`) and typical monad will accept
- * it only if the exit function called once and only from within `body`. This is
- * just a special kind of exception.
- * @function MonadDict.block
- * @param {Function} body
- * @return {MonadVal}
- */
-MonadDict.prototype.block = function(body) {
-  throw new Error('block is not implemented');
-};
-
-/*
- * Same as `M.block` but used in top level of functions for `return` and `yield`.
- * @function MonadDict.scope
- * Default implementation simply redirects to `block`.
- * @param {Function} f
- * @return {MonadVal}
- */
-MonadDict.prototype.scope = function(body) {
-  return this.block(body);
-};
-
-/*
- * Takes arbitrary number of monadic values, concatenates them into single 
- * monadic value returning all these answers. 
- *
- * Default implementation uses `plus` and `empty`.
- *
- * @function MonadDict.alt
- * @param {MonadVal[]} args
- * @return {MonadVal}
- */
-MonadDict.prototype.alt = function() {
-  var i, j, len, cur = this.empty();
-  for (j = 0, len = arguments.length; j < len; j++) {
-    i = arguments[j];
-    cur = this.plus(cur, i);
+      return iter(arg, null);
+    };
+  if (!defs.reify)
+    defs.reify = function(v) { return v(); };
+  if (!defs.reflect)
+    defs.reflect = function(m) { return m; };
+  if (!defs.run)
+    defs.run = defs.reify;
+  if (!defs["finally"])
+    defs["finally"] = function(a, f) {
+      return bind(handle(a, function(e) {
+        return bind(f(), function() {
+          return raise(e);
+        });
+      }), function(v) {
+        return mconst(f(), v);
+      });
+    };
+  if (!defs.scope)
+    defs.scope = defs.block; 
+  if (!alt) {
+    if (plus && empty)
+      alt = defs.alt = function() {
+        var i, j, len, cur;
+        //TODO: maybe balance it
+        if (!arguments.length)
+          return empty();
+        cur = arguments[0];
+        for (j = 1, len = arguments.length; j < len; j++) {
+          i = arguments[j];
+          cur = plus(cur, i);
+        }
+        return cur;
+      };
   }
-  return cur;
-};
-
-/*
- * Returns monad without answers for monads implementing Alternative interface.
- *
- * Default implementation uses `alt`.
- *
- * @function MonadDict.empty
- * @param {Array} args
- * @return {MonadVal}
- */
-MonadDict.prototype.empty = function() { return this.alt(); };
-
-/*
- * Optional value. For monads implementing Alternative interface
- * it returns monadic value with number of answers in v + one 
- * undefined answer.
- * Default implementation uses `plus` and `pure`.
- * @function MonadDict.opt
- * @param {Array} args
- * @return {MonadVal}
- */
-MonadDict.prototype.opt = function(v) {
-  return this.plus(v, this.pure());
-};
-
-/**
- * Helper function to simplify `alt` definition. Concatenates all 
- * answers from l and r into single monadic value with all the answers.
- * Default implementation uses `alt`.
- * @param {MonadVal} l
- * @param {MonadVal} r
- * @return {MonadVal}
- */
-MonadDict.prototype.plus = function(l, r) {
-  return this.alt(l, r);
-};
+  if (!empty && alt)
+    defs.empty = function() { return alt(); };
+  if (!plus && alt)
+    plus = defs.plus = function(a, b) { return alt(a, b); };
+  if (!defs.opt && plus)
+    defs.opt = function(v) { return plus(v, pure()); }
+  if (!mconst)
+    mconst = defs["const"] = function(a,arg) {
+      return apply(a, function() { return arg; });
+    };
+  if (!unshiftTo)
+    unshiftTo = defs.unshiftTo = function(a, arg) {
+        return apply(a, function(v) {
+          arg.push(v);
+          return arg;
+        });
+    };
+  if (!defs.unpack)
+    defs.unpack = function(v) { return v; };
+  if (!defs.pack)
+    defs.pack = function(v) { return v; };
+  return defs;
+}
 
 /**
  * Short equivalent to: `(a,arg) => M.apply(a, () => arg)`, but some 
@@ -472,11 +324,7 @@ MonadDict.prototype.plus = function(l, r) {
  * @param {Any} arg value to use in result instead
  * @return {MonadVal}
  */
-MonadDict.prototype["const"] = function(a, arg) {
-  return this.apply(a, function() {
-    return arg;
-  });
-};
+M["const"] = function(a, arg) { return context["const"](a,arg); }
 
 /**
  * Short equivalent to: `(a,arg) => M.apply(a, (v) => arg.unshift(v), arg)`
@@ -487,12 +335,7 @@ MonadDict.prototype["const"] = function(a, arg) {
  * @param {Array} arg
  * @return {MonadVal}
  */
-MonadDict.prototype.unshiftTo = function(a, arg) {
-  return this.apply(a, function(v) {
-    arg.push(v);
-    return arg;
-  });
-};
+M.unshiftTo = function(a, arg) { return context.unshiftTo(a,arg); }
 
 /**
 * For wrapped monadic values with will return value stored in it.
@@ -501,10 +344,10 @@ MonadDict.prototype.unshiftTo = function(a, arg) {
 * @param {MonadVal} v
 * @return {MonadVal}
 */
-MonadDict.prototype.unpack = function(v) { return v; };
+M.unpack = function(v) { return context.unpack(v); };
 
 /** 
- * Calls `run` from current context.
+ * Function to call at top level to get final result.
  * @function M.run
  * @param {MonadDict} defs definitions for monad to run
  * @param {Function} fun function to be executed inside monad context `defs` 
@@ -532,7 +375,7 @@ M.spread = function(f) {
 };
 
 /**
- * Calls current context `pure` method.
+ * Constructs monadic value with inner value `v`.
  * @function M.pure
  * @param {Any} value
  * @return {MonadVal}
@@ -542,7 +385,7 @@ M.pure = function(v) {
 };
 
 /**
- * Calls current context `raise` method.
+ * Constructs monadic value representing exception.
  * @function M.raise
  * @param {Any} value
  * @return {MonadVal}
@@ -571,7 +414,10 @@ function coerce(f) {
 }
 
 /**
- * Calls current context `apply` method
+ * Applies function `f` to monad inner value and returns monad with the same 
+ * structure but with inner value substituted by result of `f(v)`.
+ *
+ * Default implementation uses `bind` and `pure`.
  * @function M.apply
  * @param {MonadVal|Any} v
  * @param {Function} f
@@ -580,7 +426,9 @@ function coerce(f) {
 M.apply = function(v,f) { return context.apply(v,f); };
 
 /**
- * Calls current context `apply` method
+ * Applies inner value of monadic value `v` to function `f`.
+ *
+ * Default implementation uses `join` and `apply`.
  * @function M.bind
  * @param {MonadVal|Any} v
  * @param {Function} f
@@ -588,8 +436,57 @@ M.apply = function(v,f) { return context.apply(v,f); };
  */
 M.bind = function(v,f) { return context.apply(v,f); };
 
+
+/*
+ * Executes function `f` and runs monadic value returned after
+ * running `a` regardless it is succeed or raised exception.
+ * Default implementation uses `bind`, `raise`, `handle`.
+ * @function M.finally
+ * @param {MonadVal} a
+ * @param {Function} f
+ * @return {MonadVal}
+ */
+M["finally"] = function(a, f) {
+  return context["finally"](a,f);
+};
+
 /**
- * Calls current context `arr` method.
+ * Takes monadic value of monadic value of some type and returns monadic
+ * that type.
+ *
+ * Should be equivalent to:
+ * 
+ *      v => bind(v, (i) => i)
+ *
+ * Default implementation uses `bind`.
+ * @function M.join
+ * @param {MonadVal} v
+ * @return {MonadVal}
+ */
+M.join = function(v) {
+  return context.join(v);
+};
+
+/**
+ * Helper function to simplify `arr` implementation. It only takes two monadic 
+ * arguments and must return monadic value of two elements array with inner
+ * values of arguments.
+ *
+ * Default implementation uses `bind` and `apply` or `arr`.
+ * @function M.pair
+ * @param {MonadVal|Any} a
+ * @param {MonadVal|Any} b
+ * @return {MonadVal}
+ */
+M.pair = function(a, b) {
+  return context.pair(a,b);
+};
+
+/**
+ * Converts array of monadic values to monadic value of array of their inner 
+ * values.
+ *
+ * Default implementation uses `pure`, `apply` and `pair`.
  * @function M.arr
  * @param {Array} v
  * @return {MonadVal}
@@ -597,7 +494,11 @@ M.bind = function(v,f) { return context.apply(v,f); };
 M.arr = function(args) { return context.arr(args); };
 
 /**
- * Calls current context `block` method.
+ * Executes function `body` passing it another function as arguments. 
+ * Calling the passed function will exit the block with value provided as 
+ * its argument.
+ *
+ * No default implementation.
  * @function M.block
  * @param {Function} body
  * @return {MonadVal}
@@ -605,7 +506,8 @@ M.arr = function(args) { return context.arr(args); };
 M.block = function(body) { return context.block(body); };
 
 /**
- * Calls current context `scope` method.
+ * Same as `M.block` but used in top level of functions for `return` and `yield`.
+ * Default implementation simply redirects to `block`.
  * @function M.scope
  * @param {Function} body
  * @return {MonadVal}
@@ -613,7 +515,9 @@ M.block = function(body) { return context.block(body); };
 M.scope = function(body) { return context.scope(body); };
 
 /**
- * Calls current context `reify` method.
+ * This is a compiler directive making it not to treat result value
+ * as effectful and not translate it into pure one. But some monads
+ * implementations may also do something else here.
  * @function M.reify
  * @param {Function} arg
  * @return {Any}
@@ -621,7 +525,8 @@ M.scope = function(body) { return context.scope(body); };
 M.reify = function(arg) { return context.reify(arg); };
 
 /**
- * Calls current context `reflect` method.
+ * This is a compiler directive for embedding monadic values. From 
+ * original code perspective it converts monadic value into pure.
  * @function M.reflect
  * @param {MonadVal} arg
  * @return {Any}
@@ -629,7 +534,11 @@ M.reify = function(arg) { return context.reify(arg); };
 M.reflect = function(arg) { return context.reflect(arg); };
 
 /**
- * Calls current context `repeat` method.
+ * Simply executes function `body` infinitely, the function receives `arg`
+ * as argument of the first iteration and on next iteration it uses result
+ * of the previous for this.
+ *
+ * Default implementation uses `bind`, `coerce`.
  * @function M.repeat
  * @param {Function} body function to iterate
  * @param {Any} arg first iteration argument
@@ -638,7 +547,13 @@ M.reflect = function(arg) { return context.reflect(arg); };
 M.repeat = function(body, arg) { return context.repeat(body, arg); };
 
 /**
- * Calls current context `forPar` method.
+ * Simplified encoding of `for` statement.
+ *
+ * It is assumed each iteration doesn't depend on another so they may be run
+ * in parallel. The `arg` parameter is passed to all functions on the first 
+ * iteration, and on next iterations result of `upd` is used instead.
+ *
+ * Default implementation uses `bind`, `pure`.
  * @function M.forPar
  * @param {PureFunction} test returns true if another iteration must be executed
  * @param {Function} body the loop's body
@@ -651,20 +566,45 @@ M.forPar = function(test, body, upd, arg) {
 };
 
 /**
- * Calls current context `empty` method.
+ * Returns monad without answers for monads implementing Alternative interface.
+ *
+ * Default implementation uses `alt`.
  * @function M.empty
  * @return {MonadVal}
  */
 M.empty = function() { return context.empty(); };
 
 /**
- * Calls current context `alt` method.
+ * Takes arbitrary number of monadic values, concatenates them into single 
+ * monadic value returning all these answers. 
+ *
+ * Default implementation uses `plus` and `empty`.
  * @function M.alt
  * @param {Array} args
  * @return {MonadVal}
  */
 M.alt = function() { return context.alt.apply(context,arguments); };
 
+/**
+ * Helper function to simplify `alt` definition. Concatenates all 
+ * answers from l and r into single monadic value with all the answers.
+ * Default implementation uses `alt`.
+ * @param {MonadVal} l
+ * @param {MonadVal} r
+ * @return {MonadVal}
+ */
+M.plus = function(l, r) { return context.alt(l, r); };
+
+/*
+ * Optional value. For monads implementing Alternative interface
+ * it returns monadic value with number of answers in v + one 
+ * undefined answer.
+ * Default implementation uses `plus` and `pure`.
+ * @function MonadDict.opt
+ * @param {Array} args
+ * @return {MonadVal}
+ */
+M.opt = function(v) { return context.opt(v); }
 
 /**
  * Adds methods to a monadic value prototype. They redirect calls
@@ -767,153 +707,168 @@ M.completePrototype = function(defs, proto, overwrite) {
  * passed further in case of `bind` or may execute an action for example
  * for `finally`.
  * 
- * @function M.withControlByToken
+ * @function M.addControlByToken
  * @param {MonadDict} inner monad definition to add new functionality to
  * @return {MonadDict} monad definition with the new functionality
  */
-M.withControlByToken = function(inner) {
-  var errTag = {};
+M.addControlByToken = function(inner) {
+  var errTag = {}, res = clone(inner), iapply = inner.apply,
+      ibind = inner.bind, ipure = inner.pure, icoerce = inner.coerce;
   function Unwind(val, tag1) {
     this.val = val;
     this.tag = tag1;
+    this.unwindToken = true;
   }
-  function TokenControl() {}
-  TokenControl.prototype = new MonadDict();
-  TokenControl.prototype.orig = inner;
-  TokenControl.prototype.pure = inner.pure;
-  TokenControl.prototype.raise = inner.raise;
-  TokenControl.prototype.coerce = inner.coerce;
-  TokenControl.prototype.reify = inner.reify;
-  TokenControl.prototype.alt = inner.alt;
-  TokenControl.prototype.empty = inner.empty;
-  TokenControl.prototype.Unwind = Unwind;
-  TokenControl.prototype.run = inner.run;
-  TokenControl.prototype.apply = function(a, f) {
-    return inner.apply(a, function(v) {
-      if (v != null && v.constructor === Unwind) {
+  res.apply = function(a, f) {
+    return iapply(a, function(v) {
+      if (v != null && v.unwindToken)
         return v;
-      }
       return f(v);
     });
   };
-  TokenControl.prototype.bind = function(a, f) {
-    var m;
-    m = this;
-    return inner.bind(a, function(v) {
-      if (v != null && v.constructor === Unwind) {
-        return m.pure(v);
-      }
+  res.bind = function(a, f) {
+    return ibind(a, function(v) {
+      if (v != null && v.unwindToken)
+        return ipure(v);
       return f(v);
     });
   };
-  TokenControl.prototype.repeat = inner.repeat;
-  TokenControl.prototype.forPar = inner.forPar;
-  TokenControl.prototype.block = function(body) {
+  res.repeat = inner.repeat;
+  res.forPar = inner.forPar;
+  res.block = function(body) {
     var brk, bv, m, tag;
     tag = {};
-    m = this;
     brk = function(arg) {
-      return m.pure(new Unwind(arg, tag));
+      return ipure(new Unwind(arg, tag));
     };
     bv = body(brk);
-    return inner.apply(m.coerce(bv), function(v) {
-      if (v != null && v.constructor === Unwind && v.tag === tag) {
-        return v.val;
-      } else {
-        return v;
-      }
+    return iapply(icoerce(bv), function(v) {
+      return (v != null && v.unwindToken && v.tag === tag) ? v.val : v;
     });
   };
   if (inner.handle) {
-    TokenControl.prototype.raise = function(e) {
-      return inner.raise(e);
-    };
-    TokenControl.prototype.handle = function(a, f) {
-      return inner.handle(a, f);
-    };
-    TokenControl.prototype["finally"] = function(a, f) {
-      return inner["finally"](a, f);
-    };
+    res.raise = inner.raise;
+    res.handle = inner.handle;
+    res["finally"] = inner["finally"];
   } else {
-    TokenControl.prototype.raise = function(e) {
+    res.raise = function(e) {
       return new Unwind(e, errTag);
     };
-    TokenControl.prototype.handle = function(a, f) {
-      var m;
-      m = this;
-      return inner.bind(a, function(v) {
-        if (v != null && v.constructor === Unwind) {
-          if (v.tag === errTag) {
+    res.handle = function(a, f) {
+      return ibind(a, function(v) {
+        if (v != null && v.unwindToken) {
+          if (v.tag === errTag)
             return f(v.val);
-          }
         }
-        return m.pure(v);
+        return ipure(v);
       });
     };
-    TokenControl.prototype["finally"] = function(a, f) {
-      return inner.bind(a, function(v) {
-        return inner.apply(f(), function() {
+    res["finally"] = function(a, f) {
+      return ibind(a, function(v) {
+        return iapply(f(), function() {
           return v;
         });
       });
     };
   }
-  return new TokenControl();
+  return res;
 };
 
 /**
-* Modifies each higher order function to store current monad definition
-* in global context variable.
-*
-* @see M.withContext
-* @see M.liftContext
-* @function M.addContext
-* @param {MonadDict} inner monad definition to add new functionality to
-* @return {MonadDict} monad definition with the new functionality
-*/
-M.addContext = function(inner) {
-  function WithContext() {}
-  WithContext.prototype = Object.create(inner);
-  WithContext.prototype.liftContext = function(f) {
-    return liftContext(this, f);
+ * Modifies each higher order function to store current monad definition
+ * in global context variable.
+ *
+ * @see M.withContext
+ * @see M.liftContext
+ * @function M.addContext
+ * @param {MonadDict} inner monad definition to add new functionality to
+ * @return {MonadDict} monad definition with the new functionality
+ */
+M.addContext = function(inner, runOnly) {
+  var res = clone(inner), ibind = inner.bind, ihandle = inner.handle,
+      ifin = inner["finally"], irepeat = inner.repeat,
+      iforPar = inner.forPar, irun = inner.run, iscope = inner.scope;
+  function lift(f) {
+    return liftContext(inner,f);
+  }
+  function lift1(f) {
+    return liftContext2(inner,f);
+  }
+  function lift2(f) {
+    return liftContext2(inner,f);
+  }
+  res.liftContext = lift;
+  res.bind = runOnly ? ibind : function(a, f) {
+    return ibind(a, lift2(f));
   };
-  WithContext.prototype.bind = function(a, f) {
-    return inner.bind.call(this, a, this.liftContext(f));
+  res.handle = runOnly ? ihandle : function(a, f) {
+    return ihande(a, lift2(f));
   };
-  WithContext.prototype.handle = function(a, f) {
-    return inner.handle.call(this, a, this.liftContext(f));
+  res["finally"] = runOnly ? ifin : function(a, f) {
+    return ifin(a, lift2(f));
   };
-  WithContext.prototype["finally"] = function(a, f) {
-    return inner["finally"].call(this, a, this.liftContext(f));
+  res.repeat = runOnly ? irepeat : function(f, arg) {
+    return irepeat(lift1(f), arg);
   };
-  WithContext.prototype.repeat = function(f, arg) {
-    return inner.repeat.call(this, this.liftContext(f), arg);
+  res.forPar = runOnly ? iforPar : function(test, body, upd, arg) {
+    return iforPar(test, lift1(body), upd, arg);
   };
-  WithContext.prototype.forPar = function(test, body, upd, arg) {
-    return inner.forPar.call(this, test, this.liftContext(body), upd, arg);
-  };
-  WithContext.prototype.run = function(f) {
+  res.block = runOnly ? iblock : function(f) { return iblock(lift1(f)); };
+  res.scope = runOnly ? iscope : function(f) { return iscope(lift1(f)); };
+  res.run = function(f) {
     var args = Array.from(arguments);
     args[0] = this.liftContext(f);
-    return inner.run.apply(this, args);
+    return irun.apply(this, args);
   };
-  WithContext.prototype.block = function(f) {
-    return inner.block.call(this, this.liftContext(f));
-  };
-  return new WithContext();
+  return res;
 };
 
-
-M.defaults = defaults;
 /**
- * Combination of control by token and context. 
- * @function M.defaults
- * @param {MonadDict} inner original monad definition
- * @return {MonadDict}
+ * Adds coercing to all function's result expecting monadic value
+ *
+ * @function M.addCoerce
+ * @param {MonadDict} inner monad definition to add new functionality to
+ * @return {MonadDict} monad definition with the new functionality
  */
-function defaults(inner) {
-  return M.addContext(M.withControlByToken(inner));
-}
+M.addCoerce = function(inner, runOnly) {
+  var res = clone(inner), ibind = inner.bind, ihandle = inner.handle,
+      ifin = inner["finally"], irepeat = inner.repeat, iscope = inner.scope,
+      iforPar = inner.forPar, irun = inner.run, icoerce = inner.coerce,
+      iblock = inner.block;
+  if (!icoerce)
+    throw new Error("no coerce function");
+  function lift(f) {
+    return function() {
+      return icoerce(f.apply(this, arguments));
+    }
+  }
+  function lift2(f) {
+    return function(a,b) {
+      return icoerce(f(a,b));
+    }
+  }
+  function lift1(f) {
+    return function(a) {
+      return icoerce(f(a));
+    }
+  }  
+  res.liftCoerce = lift;
+  res.bind = function(a, f) { return ibind(a, lift2(f)); };
+  res.handle = function(a, f) { return ihande(a, lift2(f)); };
+  res["finally"] = function(a, f) { return ifin(a, lift2(f)); };
+  res.repeat = function(f, arg) { return irepeat(lift1(f), arg); };
+  res.forPar = function(test, body, upd, arg) {
+    return iforPar(test, lift1(body), upd, arg);
+  };
+  res.block = function(f) { return iblock(lift1(f)); };
+  res.scope = function(f) { return iscope(lift1(f)); };
+  res.run = function(f) {
+    var args = Array.from(arguments);
+    args[0] = lift(f);
+    return irun.apply(this, args);
+  };
+  return res;
+};
 
 M.wrap = wrap;
 /**
@@ -931,89 +886,137 @@ M.wrap = wrap;
  * @return {MonadDict}
  */
 function wrap(inner, Wrap) {
-  function coerce(v) {
-    if (v != null && v.constructor === Wrap) {
-      return v;
-    }
-    return pack(inner.coerce(v));
+  var coerce, unpack, res = {}, ipure = inner.pure, ibind = inner.bind,
+      iapply = inner.apply, ihandle = inner.handle, iraise = inner.raise,
+      ifin = inner["finally"], ipair = inner.pair, iarr = inner.arr,
+      iplus = inner.plus, ireflect = inner.reflect, ireify = inner.reify,
+      irun = inner.run, ialt = inner.alt, iempty = inner.empty,
+      irepeat = inner.repeat, iforPar = inner.forPar, iblock = inner.block,
+      iscope = inner.scope, icoerce = inner.coerce;
+  if (icoerce) {
+    res.unpack = unpack = function(v) { return coerce(v).inner; };
+    res.coerce = coerce = function(v) {
+      if (v != null && v.constructor === Wrap)
+        return v;
+      return new Wrap(icoerce(v));
+    };
+  } else {
+    res.unpack = unpack = function(v) { return v.inner; }
   }
-  function pack(v) {
-    return new Wrap(v);
-  }
-  function unpack(v) {
-    return coerce(v).inner;
-  }
-  function Wrapped() {}
-  Wrapped.prototype = new MonadDict();
-  Wrapped.prototype.orig = inner;
-  Wrapped.prototype.pure = function(v) {
-    return new Wrap(inner.pure(v));
+  res.pack = function(v) { return new Wrap(v); }
+  res.pure = function(v) {
+    return new Wrap(ipure(v));
   };
-  Wrapped.prototype.coerce = coerce;
-  Wrapped.prototype.apply = function(a, f) {
-    return pack(inner.apply(unpack(a), f));
+  res.apply = function(a, f) {
+    return new Wrap(iapply(unpack(a), f));
   };
-  Wrapped.prototype.bind = function(a, f) {
-    return pack(inner.bind(unpack(a), function(v) {
+  res.bind = function(a, f) {
+    return new Wrap(ibind(unpack(a), function(v) {
       return unpack(f(v));
     }));
   };
-  Wrapped.prototype.raise = function(e) {
-    return pack(inner.raise(e));
+  res.raise = function(e) {
+    return new Wrap(iraise(e));
   };
-  Wrapped.prototype.handle = function(a, f) {
-    return pack(inner.handle(unpack(a), function(v) {
+  res.handle = function(a, f) {
+    return new Wrap(ihandle(unpack(a), function(v) {
       return unpack(f(v));
     }));
   };
-  Wrapped.prototype["finally"] = function(a, f) {
-    return pack(inner["finally"](unpack(a), function() {
+  res["finally"] = function(a, f) {
+    return new Wrap(ifin(unpack(a), function() {
       return unpack(f());
     }));
   };
-  Wrapped.prototype.pair = function(l, r) {
-    return pack(inner.pair(unpack(l), unpack(r)));
+  res.pair = function(l, r) {
+    return new Wrap(ipair(unpack(l), unpack(r)));
   };
-  Wrapped.prototype.arr = function(v) {
+  res.arr = function(v) {
     var i, j, len, r = [];
     for (j = 0, len = v.length; j < len; j++) {
       i = v[j];
       r.push(unpack(v));
     }
-    return pack(inner.arr(r));
+    return new Wrap(iarr(r));
   };
-  Wrapped.prototype.reify = function(v) {
-    return unpack(inner.reify(v));
+  res.reify = function(v) {
+    return unpack(ireify(v));
   };
-  Wrapped.prototype.reflect = function(v) {
-    return pack(inner.reflect(v))
+  res.reflect = function(v) {
+    return new Wrap(ireflect(v))
   };
-  Wrapped.prototype.unpack = unpack;
-  Wrapped.prototype.run = function(f) {
+  res.run = function(f) {
     var args = Array.from(arguments);
     args[0] = function() {
       return unpack(f());
     };
-    return inner.run.apply(inner, args);
+    return irun.apply(inner, args);
   };
-  Wrapped.prototype.repeat = function(f, arg) {
-    return pack(inner.repeat(function(arg) {
+  res.repeat = function(f, arg) {
+    return new Wrap(irepeat(function(arg) {
       return unpack(f(arg));
     }, arg));
   };
-  Wrapped.prototype.forPar = function(test, body, upd, arg) {
-    return pack(inner.forPar(test, function(arg) {
+  res.forPar = function(test, body, upd, arg) {
+    return new Wrap(iforPar(test, function(arg) {
       return unpack(body(arg));
     }, upd, arg));
   };
-  Wrapped.prototype.block = function(f) {
-    return pack(inner.block(function(l) {
+  res.block = function(f) {
+    return new Wrap(iblock(function(l) {
       return unpack(f(function(arg) {
-        return pack(l(arg));
+        return new Wrap(l(arg));
       }));
     }));
   };
-  return new Wrapped();
+  res.scope = function(f) {
+    return new Wrap(iscope(function(l) {
+      return unpack(f(function(arg) {
+        return new Wrap(l(arg));
+      }));
+    }));
+  };
+  completeMonad(res);
+  res = clone(res);
+  M.completePrototype(res,Wrap.prototype);
+  return res;
+}
+
+M.defaults = defaults;
+/**
+ * Runs definitions transformations based on specified set of options.
+ * 
+ * Options:
+ * * wrap - constructor function used for wrapped value, 
+ *          it should construct objects with inner field
+ * * context - boolean or "run" string for only wrapping run method,
+ *             default is true
+ * * coerce - boolean for adding coercions to functions returning 
+ *            monadic values, default is true
+ * * control - string "token" for adding control operators implementation
+ *             using special token passing
+ * @function M.defaults
+ * @param {MonadDict} inner original monad definition
+ * @param {Object} options
+ * @return {MonadDict}
+ */
+function defaults(defs,opts) {
+  if (!opts)
+    opts = {}
+  if (opts.context == null)
+    opts.context = true;
+  if (opts.coerce == null)
+    opts.coerce = true;
+  completeMonad(defs);
+  if (opts.control === "token")
+    defs = M.addControlByToken(defs);
+  if (opts.wrap)
+    defs = M.wrap(defs,opts.wrap);
+  if (opts.coerce)
+    defs = M.addCoerce(defs);
+  if (opts.context)
+    defs = M.addContext(defs, opts.context === "run");
+  return defs;
 }
 
 /**
@@ -1062,6 +1065,22 @@ function liftContext(ctx, func) {
     context = ctx;
     try {
       return func.apply(null, arguments);
+    } finally {
+      context = saved;
+    }
+  };
+}
+
+function liftContext2(ctx, func) {
+  if (!ctx.pure) {
+    throw new Error("no monad's definition is provided");
+  }
+  return function(a) {
+    var saved;
+    saved = context;
+    context = ctx;
+    try {
+      return func(a);
     } finally {
       context = saved;
     }
