@@ -123,7 +123,7 @@ function arrayIterator(arr) {
     };
     res.value = arr[cur];
     return res;
-  };
+  }
   return iter(0);
 }
 
@@ -136,35 +136,37 @@ function arrayIterator(arr) {
  * @param {MonadDict} initial definitions
  * @return {MonadDict} complete definition
  */
-M.clone = clone;
-function clone(from,to) {
+M.cloneDefs = cloneDefs;
+function cloneDefs(from, defs) {
   var fcoerce = from.coerce;
-  if (!to)
-    to = fcoerce ? function(v) { return fcoerce(v); } : {}
-  to.coerce = fcoerce;
-  to.pure = from.pure;
-  to.bind = from.bind;
-  to.block = from.block;
-  to.scope = from.scope;
-  to.apply = from.apply;
-  to.raise = from.raise;
-  to.handle = from.handle;
-  to["finally"] = from["finally"];
-  to.pair = from.pair;
-  to.arr = from.arr;
-  to.empty = from.empty;
-  to.alt = from.alt;
-  to.plus = from.plus;
-  to.repeat = from.repeat;
-  to.forPar = from.forPar;
-  to.pack = from.pack;
-  to.unpack = from.unpack;
-  to.run = from.run;
-  to.reflect = from.reflect;
-  to.reify = from.reify;
-  to["const"] = from["const"];
-  to.unshiftTo = from.unshiftTo;
-  return to;
+  if (!defs)
+    defs = fcoerce ? function(v) { return fcoerce(v); } : {};
+  defs.coerce = fcoerce;
+  defs.pure = from.pure;
+  defs.bind = from.bind;
+  defs.block = from.block;
+  defs.scope = from.scope;
+  defs.map = from.map;
+  defs.raise = from.raise;
+  defs.handle = from.handle;
+  defs["finally"] = from["finally"];
+  defs.pair = from.pair;
+  defs.arr = from.arr;
+  defs.empty = from.empty;
+  defs.alt = from.alt;
+  defs.plus = from.plus;
+  defs.repeat = from.repeat;
+  defs.forPar = from.forPar;
+  defs.pack = from.pack;
+  defs.unpack = from.unpack;
+  defs.run = from.run;
+  defs.exec = from.exec;
+  defs.reflect = from.reflect;
+  defs.reify = from.reify;
+  defs["const"] = from["const"];
+  defs.unshiftTo = from.unshiftTo;
+  defs.cloneDefs = from.cloneDefs;
+  return defs;
 }
 
 /**
@@ -177,7 +179,7 @@ M.completeMonad = completeMonad;
 function completeMonad(defs) {
   var pure = defs.pure,
       bind = defs.bind,
-      apply = defs.apply,
+      map = defs.map,
       coerce = defs.coerce,
       join = defs.join,
       pair = defs.pair,
@@ -192,19 +194,21 @@ function completeMonad(defs) {
     throw new Error("pure function must defined");
   if (!coerce)
     coerce = defs.coerce = function(v) { return v; };
+  if (!defs.cloneDefs)
+    defs.cloneDefs = cloneDefs;
   if (!bind) {
-    if (join && apply)
-      bind = defs.bind = function(a, f) { return join(apply(a,f)); }
+    if (join && map)
+      bind = defs.bind = function(a, f) { return join(map(a,f)); }
     else
       bind = defs.bind = function(a, f) { return a.mbind(f); }
   }
-  if (!apply) {
+  if (!map) {
     if (bind)
-      apply = defs.apply = function(a, f) {
+      map = defs.map = function(a, f) {
         return bind(a, function(v) { return pure(f(v)); });
       };
     else
-      apply = defs.apply = function(a, f) { return a.mapply(f); };
+      map = defs.map = function(a, f) { return a.mapply(f); };
   }
   if (!join)
     join = defs.join = function(m) { return bind(m, function(v) { return v; }); }
@@ -214,7 +218,7 @@ function completeMonad(defs) {
     else
       pair = defs.pair = function(a,b) {
         return bind(a, function(av) {
-          return apply(b, function(bv) {
+          return map(b, function(bv) {
             return [av, bv];
           });
         });
@@ -224,15 +228,15 @@ function completeMonad(defs) {
     defs.arr = arr = function(v) {
       switch (v.length) {
       case 0:
-        return this.pure([]);
+        return pure([]);
       case 1:
-        return this.apply(v[0], function(v) {
+        return map(v[0], function(v) {
           return [v];
         });
       case 2:
-        return this.pair(v[0], v[1]);
+        return pair(v[0], v[1]);
       default:
-        return this.apply(this.pair(v[0], v(v.slice(1))), function(arg1) {
+        return map(pair(v[0], v(v.slice(1))), function(arg1) {
           return [arg1[0]].concat(arg1[1]);
         });
       }
@@ -298,11 +302,11 @@ function completeMonad(defs) {
     defs.opt = function(v) { return plus(v, pure()); }
   if (!mconst)
     mconst = defs["const"] = function(a,arg) {
-      return apply(a, function() { return arg; });
+      return map(a, function() { return arg; });
     };
   if (!unshiftTo)
     unshiftTo = defs.unshiftTo = function(a, arg) {
-        return apply(a, function(v) {
+        return map(a, function(v) {
           arg.push(v);
           return arg;
         });
@@ -315,21 +319,21 @@ function completeMonad(defs) {
 }
 
 /**
- * Short equivalent to: `(a,arg) => M.apply(a, () => arg)`, but some 
+ * Short equivalent to: `(a,arg) => M.map(a, () => arg)`, but some 
  * implementations may override it to implement something more effective.
  * 
- * Default implementation uses `apply`.
+ * Default implementation uses `map`.
  * @function MonadDict.const
- * @param {MonadVal} a value to apply to
+ * @param {MonadVal} a value to map to
  * @param {Any} arg value to use in result instead
  * @return {MonadVal}
  */
 M["const"] = function(a, arg) { return context["const"](a,arg); }
 
 /**
- * Short equivalent to: `(a,arg) => M.apply(a, (v) => arg.unshift(v), arg)`
+ * Short equivalent to: `(a,arg) => M.map(a, (v) => arg.unshift(v), arg)`
  * 
- * Default implementation uses `apply`
+ * Default implementation uses `map`
  * @function MonadDict.unshiftTo
  * @param {MonadVal} a
  * @param {Array} arg
@@ -356,7 +360,7 @@ M.run = function(defs, fun) {
   var args = Array.from(arguments);
   args.shift();
   return liftContext(defs,function() {
-    return context.run.apply(context,args);
+    return context.run.map(context,args);
   })();
 };
 
@@ -418,24 +422,23 @@ function coerce(f) {
  * structure but with inner value substituted by result of `f(v)`.
  *
  * Default implementation uses `bind` and `pure`.
- * @function M.apply
+ * @function M.map
  * @param {MonadVal|Any} v
  * @param {Function} f
  * @return {MonadVal}
  */
-M.apply = function(v,f) { return context.apply(v,f); };
+M.map = function(v,f) { return context.map(v,f); };
 
 /**
  * Applies inner value of monadic value `v` to function `f`.
  *
- * Default implementation uses `join` and `apply`.
+ * Default implementation uses `join` and `map`.
  * @function M.bind
  * @param {MonadVal|Any} v
  * @param {Function} f
  * @return {MonadVal}
  */
-M.bind = function(v,f) { return context.apply(v,f); };
-
+M.bind = function(v,f) { return context.map(v,f); };
 
 /*
  * Executes function `f` and runs monadic value returned after
@@ -472,7 +475,7 @@ M.join = function(v) {
  * arguments and must return monadic value of two elements array with inner
  * values of arguments.
  *
- * Default implementation uses `bind` and `apply` or `arr`.
+ * Default implementation uses `bind` and `map` or `arr`.
  * @function M.pair
  * @param {MonadVal|Any} a
  * @param {MonadVal|Any} b
@@ -486,7 +489,7 @@ M.pair = function(a, b) {
  * Converts array of monadic values to monadic value of array of their inner 
  * values.
  *
- * Default implementation uses `pure`, `apply` and `pair`.
+ * Default implementation uses `pure`, `map` and `pair`.
  * @function M.arr
  * @param {Array} v
  * @return {MonadVal}
@@ -583,7 +586,7 @@ M.empty = function() { return context.empty(); };
  * @param {Array} args
  * @return {MonadVal}
  */
-M.alt = function() { return context.alt.apply(context,arguments); };
+M.alt = function() { return context.alt.map(context,arguments); };
 
 /**
  * Helper function to simplify `alt` definition. Concatenates all 
@@ -628,7 +631,7 @@ M.addMethods = function(proto, overwrite) {
   }
   if (overwrite || !proto.mapply) {
     proto.mapply = function(f) {
-      return this.mcontext.apply(this, f);
+      return this.mcontext.map(this, f);
     };
   }
   if (overwrite || !proto.mjoin) {
@@ -663,7 +666,7 @@ M.addMethods = function(proto, overwrite) {
   }
   if (overwrite || !proto.malt) {
     proto.malt = function(v) {
-      return this.mcontext.alt.apply(this.mcontext,[this].concat(v));
+      return this.mcontext.alt.map(this.mcontext,[this].concat(v));
     };
   }
   if (overwrite || !proto.mopt) {
@@ -712,15 +715,15 @@ M.completePrototype = function(defs, proto, overwrite) {
  * @return {MonadDict} monad definition with the new functionality
  */
 M.addControlByToken = function(inner) {
-  var errTag = {}, res = clone(inner), iapply = inner.apply,
+  var errTag = {}, res = inner.cloneDefs(inner), imap = inner.map,
       ibind = inner.bind, ipure = inner.pure, icoerce = inner.coerce;
   function Unwind(val, tag1) {
     this.val = val;
     this.tag = tag1;
     this.unwindToken = true;
   }
-  res.apply = function(a, f) {
-    return iapply(a, function(v) {
+  res.map = function(a, f) {
+    return imap(a, function(v) {
       if (v != null && v.unwindToken)
         return v;
       return f(v);
@@ -742,7 +745,7 @@ M.addControlByToken = function(inner) {
       return ipure(new Unwind(arg, tag));
     };
     bv = body(brk);
-    return iapply(icoerce(bv), function(v) {
+    return imap(icoerce(bv), function(v) {
       return (v != null && v.unwindToken && v.tag === tag) ? v.val : v;
     });
   };
@@ -765,7 +768,7 @@ M.addControlByToken = function(inner) {
     };
     res["finally"] = function(a, f) {
       return ibind(a, function(v) {
-        return iapply(f(), function() {
+        return imap(f(), function() {
           return v;
         });
       });
@@ -785,7 +788,7 @@ M.addControlByToken = function(inner) {
  * @return {MonadDict} monad definition with the new functionality
  */
 M.addContext = function(inner, runOnly) {
-  var res = clone(inner), ibind = inner.bind, ihandle = inner.handle,
+  var res = inner.cloneDefs(inner), ibind = inner.bind, ihandle = inner.handle,
       ifin = inner["finally"], irepeat = inner.repeat,
       iforPar = inner.forPar, irun = inner.run, iscope = inner.scope;
   function lift(f) {
@@ -831,7 +834,7 @@ M.addContext = function(inner, runOnly) {
  * @return {MonadDict} monad definition with the new functionality
  */
 M.addCoerce = function(inner, runOnly) {
-  var res = clone(inner), ibind = inner.bind, ihandle = inner.handle,
+  var res = inner.cloneDefs(inner), ibind = inner.bind, ihandle = inner.handle,
       ifin = inner["finally"], irepeat = inner.repeat, iscope = inner.scope,
       iforPar = inner.forPar, irun = inner.run, icoerce = inner.coerce,
       iblock = inner.block;
@@ -887,7 +890,7 @@ M.wrap = wrap;
  */
 function wrap(inner, Wrap) {
   var coerce, unpack, res = {}, ipure = inner.pure, ibind = inner.bind,
-      iapply = inner.apply, ihandle = inner.handle, iraise = inner.raise,
+      imap = inner.map, ihandle = inner.handle, iraise = inner.raise,
       ifin = inner["finally"], ipair = inner.pair, iarr = inner.arr,
       iplus = inner.plus, ireflect = inner.reflect, ireify = inner.reify,
       irun = inner.run, ialt = inner.alt, iempty = inner.empty,
@@ -907,8 +910,8 @@ function wrap(inner, Wrap) {
   res.pure = function(v) {
     return new Wrap(ipure(v));
   };
-  res.apply = function(a, f) {
-    return new Wrap(iapply(unpack(a), f));
+  res.map = function(a, f) {
+    return new Wrap(imap(unpack(a), f));
   };
   res.bind = function(a, f) {
     return new Wrap(ibind(unpack(a), function(v) {
@@ -977,7 +980,7 @@ function wrap(inner, Wrap) {
     }));
   };
   completeMonad(res);
-  res = clone(res);
+  res = res.cloneDefs(res);
   M.completePrototype(res,Wrap.prototype);
   return res;
 }
@@ -1135,7 +1138,7 @@ Monad.prototype.mbind = function(f) {
 };
 
 Monad.prototype.mapply = function(f) {
-  return context.apply(this, f);
+  return context.map(this, f);
 };
 
 Monad.prototype.mjoin = function() {
