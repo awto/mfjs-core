@@ -138,7 +138,10 @@ function arrayIterator(arr) {
  */
 M.cloneDefs = cloneDefs;
 function cloneDefs(from, defs) {
-  var fcoerce = from.coerce;
+  var fcoerce, i;
+  if (!from)
+    from = this;
+  fcoerce = from.coerce;
   if (!defs)
     defs = fcoerce ? function(v) { return fcoerce(v); } : {};
   defs.coerce = fcoerce;
@@ -166,6 +169,11 @@ function cloneDefs(from, defs) {
   defs["const"] = from["const"];
   defs.unshiftTo = from.unshiftTo;
   defs.cloneDefs = from.cloneDefs;
+  defs.options = {}
+  for(i in from.options)
+    defs.options[i] = from.options[i];
+  defs.addCoerce = from.addCoerce;
+  defs.addContext = from.addContext;
   return defs;
 }
 
@@ -315,6 +323,8 @@ function completeMonad(defs) {
     defs.unpack = function(v) { return v; };
   if (!defs.pack)
     defs.pack = function(v) { return v; };
+  if (!defs.options)
+    defs.options = {};
   return defs;
 }
 
@@ -715,7 +725,7 @@ M.completePrototype = function(defs, proto, overwrite) {
  * @return {MonadDict} monad definition with the new functionality
  */
 M.addControlByToken = function(inner) {
-  var errTag = {}, res = inner.cloneDefs(inner), imap = inner.map,
+  var errTag = {}, res = inner.cloneDefs(), imap = inner.map,
       ibind = inner.bind, ipure = inner.pure, icoerce = inner.coerce;
   function Unwind(val, tag1) {
     this.val = val;
@@ -788,39 +798,34 @@ M.addControlByToken = function(inner) {
  * @return {MonadDict} monad definition with the new functionality
  */
 M.addContext = function(inner, runOnly) {
-  var res = inner.cloneDefs(inner), ibind = inner.bind, ihandle = inner.handle,
+  var res = inner.cloneDefs(), ibind = inner.bind, ihandle = inner.handle,
       ifin = inner["finally"], irepeat = inner.repeat,
       iforPar = inner.forPar, irun = inner.run, iscope = inner.scope;
-  function lift(f) {
-    return liftContext(inner,f);
-  }
-  function lift1(f) {
-    return liftContext2(inner,f);
-  }
-  function lift2(f) {
-    return liftContext2(inner,f);
-  }
-  res.liftContext = lift;
+  res.options.context = runOnly ? "run" : true;
   res.bind = runOnly ? ibind : function(a, f) {
-    return ibind(a, lift2(f));
+    return ibind(a, liftContext1(inner,f));
   };
   res.handle = runOnly ? ihandle : function(a, f) {
-    return ihande(a, lift2(f));
+    return ihande(a, liftContext1(inner,f));
   };
   res["finally"] = runOnly ? ifin : function(a, f) {
-    return ifin(a, lift2(f));
+    return ifin(a, liftContext1(inner,f));
   };
   res.repeat = runOnly ? irepeat : function(f, arg) {
-    return irepeat(lift1(f), arg);
+    return irepeat(liftContext1(inner,f), arg);
   };
   res.forPar = runOnly ? iforPar : function(test, body, upd, arg) {
-    return iforPar(test, lift1(body), upd, arg);
+    return iforPar(test, liftContext1(inner,body), upd, arg);
   };
-  res.block = runOnly ? iblock : function(f) { return iblock(lift1(f)); };
-  res.scope = runOnly ? iscope : function(f) { return iscope(lift1(f)); };
+  res.block = runOnly ? iblock : function(f) {
+    return iblock(liftContext1(inner,f));
+  };
+  res.scope = runOnly ? iscope : function(f) {
+    return iscope(liftContext1(inner,f));
+  };
   res.run = function(f) {
     var args = Array.from(arguments);
-    args[0] = this.liftContext(f);
+    args[0] = liftContext(inner,f);
     return irun.apply(this, args);
   };
   return res;
@@ -834,31 +839,28 @@ M.addContext = function(inner, runOnly) {
  * @return {MonadDict} monad definition with the new functionality
  */
 M.addCoerce = function(inner, runOnly) {
-  var res = inner.cloneDefs(inner), ibind = inner.bind, ihandle = inner.handle,
+  var res = inner.cloneDefs(), ibind = inner.bind, ihandle = inner.handle,
       ifin = inner["finally"], irepeat = inner.repeat, iscope = inner.scope,
       iforPar = inner.forPar, irun = inner.run, icoerce = inner.coerce,
       iblock = inner.block;
+  res.options.coerce = true;
   if (!icoerce)
     throw new Error("no coerce function");
   function lift(f) {
     return function() {
-      return icoerce(f.apply(this, arguments));
-    }
-  }
-  function lift2(f) {
-    return function(a,b) {
-      return icoerce(f(a,b));
+      return icoerce(f.apply(null, arguments));
     }
   }
   function lift1(f) {
     return function(a) {
       return icoerce(f(a));
     }
-  }  
+  }
   res.liftCoerce = lift;
-  res.bind = function(a, f) { return ibind(a, lift2(f)); };
-  res.handle = function(a, f) { return ihande(a, lift2(f)); };
-  res["finally"] = function(a, f) { return ifin(a, lift2(f)); };
+  res.liftCoerce1 = lift1;
+  res.bind = function(a, f) { return ibind(a, lift1(f)); };
+  res.handle = function(a, f) { return ihande(a, lift1(f)); };
+  res["finally"] = function(a, f) { return ifin(a, lift1(f)); };
   res.repeat = function(f, arg) { return irepeat(lift1(f), arg); };
   res.forPar = function(test, body, upd, arg) {
     return iforPar(test, lift1(body), upd, arg);
@@ -980,7 +982,7 @@ function wrap(inner, Wrap) {
     }));
   };
   completeMonad(res);
-  res = res.cloneDefs(res);
+  res = res.cloneDefs();
   M.completePrototype(res,Wrap.prototype);
   return res;
 }
@@ -1023,16 +1025,28 @@ function defaults(defs,opts) {
 }
 
 /**
-* Sets global context.
-* 
-* Do not use it unless whole project uses single monad. 
-* 
-* @function M.setContext
-* @param {MonadDict} monad definition to store
-*/
+ * Sets global context.
+ * 
+ * Do not use it unless whole project uses single monad. 
+ * 
+ * @function M.setContext
+ * @param {MonadDict} monad definition to store
+ * @return {MonadDict} former context
+ */
 M.setContext = function(ctx) {
-  return context = ctx;
+  var old = context;
+  context = ctx;
+  return old;
 };
+
+/**
+  * Returns current context
+  * @function M.getContext
+  * @return {MonadDict}
+  */
+M.getContext = function() {
+  return context;
+}
 
 M.withContext = withContext;
 /**
@@ -1049,6 +1063,8 @@ function withContext(ctx, func) {
 }
 
 M.liftContext = liftContext;
+M.liftContext1 = liftContext1;
+M.liftContext2 = liftContext2;
 /**
  * Turns a function into a function initializing global context to `ctx`
  * and reverting it to the old value on exit.
@@ -1074,16 +1090,32 @@ function liftContext(ctx, func) {
   };
 }
 
-function liftContext2(ctx, func) {
+function liftContext1(ctx, func) {
   if (!ctx.pure) {
     throw new Error("no monad's definition is provided");
   }
-  return function(a) {
+  return function inContext(a) {
     var saved;
     saved = context;
     context = ctx;
     try {
       return func(a);
+    } finally {
+      context = saved;
+    }
+  };
+}
+
+function liftContext2(ctx, func) {
+  if (!ctx.pure) {
+    throw new Error("no monad's definition is provided");
+  }
+  return function inContext(a,b) {
+    var saved;
+    saved = context;
+    context = ctx;
+    try {
+      return func(a,b);
     } finally {
       context = saved;
     }
