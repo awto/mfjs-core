@@ -402,6 +402,48 @@ module.exports = function(M,it) {
         });
         def.done();
       });
+      context('with break in finally', function() {
+        it('shold cancel previous break', function(def) {
+          def.run(function() {
+            def.rec('a');
+            l1: {
+              def.rec('l1');
+              l2: {
+                try {
+                  def.rec('l2');
+                  break l1;
+                } finally {
+                  def.rec('f1');
+                  break l2;
+                }
+              }
+              def.rec('al2');
+            }
+            def.rec('al1');
+            def.check('a', 'l1', 'l2', 'f1', 'al2', 'al1');
+          });
+          def.done();
+        });
+        it('shold cancel previous throw', function(def) {
+          def.run(function() {
+            def.rec('a');
+            l1: {
+              def.rec('l1');
+              try {
+                def.rec('error');
+                throw new Error("e");
+              } finally {
+                def.rec('fin');
+                break l1;
+              }
+              def.rec('at');
+            }
+            def.rec('al1');
+            def.check('a', 'l1', 'error', 'fin', 'al1');
+          });
+          def.done();
+        });
+      });
       context('with variables modifications', function() {
         it('should have the same semantics as js', function(def) {
           def.run(function() {

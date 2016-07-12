@@ -132,7 +132,7 @@ function arrayIterator(arr) {
  *
  * If a few monad definitions are used in a program it is worth 
  * they are cloned first to get same hidden class. 
- * @function M.completeMonad
+ * @function M.cloneDefs
  * @param {MonadDict} initial definitions
  * @return {MonadDict} complete definition
  */
@@ -174,6 +174,7 @@ function cloneDefs(from, defs) {
     defs.options[i] = from.options[i];
   defs.addCoerce = from.addCoerce;
   defs.addContext = from.addContext;
+  defs.seq = from.seq;
   return defs;
 }
 
@@ -184,7 +185,7 @@ function cloneDefs(from, defs) {
  * @return {MonadDict} complete definition
  */
 M.completeMonad = completeMonad;
-function completeMonad(defs) {
+function completeMonad(defs, opts) {
   var pure = defs.pure,
       bind = defs.bind,
       map = defs.map,
@@ -196,35 +197,43 @@ function completeMonad(defs) {
       plus = defs.plus,
       empty = defs.empty,
       mconst = defs["const"],
-      unshiftTo = defs.unshiftTo
+      unshiftTo = defs.unshiftTo,
+      seq = defs.seq,
+      run = defs.run,
+      handle = defs.handle,
+      raise = defs.raise
       ;
   if (!pure)
     throw new Error("pure function must defined");
   if (!coerce)
-    coerce = defs.coerce = function(v) { return v; };
+    coerce = defs.coerce = function coerce(v) { return v; };
   if (!defs.cloneDefs)
     defs.cloneDefs = cloneDefs;
   if (!bind) {
     if (join && map)
-      bind = defs.bind = function(a, f) { return join(map(a,f)); }
+      bind = defs.bind = function bind(a, f) { return join(map(a,f)); }
     else
-      bind = defs.bind = function(a, f) { return a.mbind(f); }
+      bind = defs.bind = function bind(a, f) { return a.mbind(f); }
   }
   if (!map) {
     if (bind)
-      map = defs.map = function(a, f) {
-        return bind(a, function(v) { return pure(f(v)); });
+      map = defs.map = function map(a, f) {
+        return bind(a, function mapCont(v) { return pure(f(v)); });
       };
     else
-      map = defs.map = function(a, f) { return a.mapply(f); };
+      map = defs.map = function map(a, f) { return a.mapply(f); };
   }
   if (!join)
-    join = defs.join = function(m) { return bind(m, function(v) { return v; }); }
+    join = defs.join = function join(m) {
+      return bind(m, function joinCont(v) { return v; });
+    }
   if (!pair) {
     if (arr)
-      pair = defs.pair = function(a,b) { return arr([a,b]); };
+      pair = defs.pair = function pair(a,b) {
+        return arr([a,b]);
+      };
     else
-      pair = defs.pair = function(a,b) {
+      pair = defs.pair = function pair(a,b) {
         return bind(a, function(av) {
           return map(b, function(bv) {
             return [av, bv];
@@ -233,7 +242,7 @@ function completeMonad(defs) {
       };
   }
   if (!arr)
-    defs.arr = arr = function(v) {
+    defs.arr = arr = function arr(v) {
       switch (v.length) {
       case 0:
         return pure([]);
@@ -244,52 +253,50 @@ function completeMonad(defs) {
       case 2:
         return pair(v[0], v[1]);
       default:
-        return map(pair(v[0], v(v.slice(1))), function(arg1) {
+        return map(pair(v[0], v(v.slice(1))), function arrIter(arg1) {
           return [arg1[0]].concat(arg1[1]);
         });
       }
     };
   if (!defs.repeat)
-    defs.repeat = function(body, arg) {
-      iter = function(arg) {
+    defs.repeat = function repeat(body, arg) {
+      function iter(arg) {
         return bind(body(arg), iter);
       };
       return iter(arg);
     };
   if (!defs.forPar)
-    defs.forPar = function(test, body, upd, arg) {
-      iter = function(arg) {
+    defs.forPar = function forPar(test, body, upd, arg) {
+      function forParBody(arg) {
         if (test(arg)) {
-          return bind(body(arg), function() {
-            return iter(upd(arg));
+          return bind(body(arg), function forParUpd() {
+            return forParBody(upd(arg));
           });
         } else {
           return pure(arg);
         }
-      };
-      return iter(arg, null);
+      }
+      return forParBody(arg, null);
     };
   if (!defs.reify)
-    defs.reify = function(v) { return v(); };
+    defs.reify = function reify(v) { return v(); };
   if (!defs.reflect)
-    defs.reflect = function(m) { return m; };
-  if (!defs.run)
-    defs.run = defs.reify;
+    defs.reflect = function reflect(m) { return m; };
+  if (!run)
+    run = defs.run = defs.reify;
   if (!defs["finally"])
-    defs["finally"] = function(a, f) {
-      return bind(handle(a, function(e) {
-        return bind(f(), function() {
+    defs["finally"] = function _finally(a, f) {
+      return bind(handle(a, function finnalyError(e) {
+        return bind(f(), function finallyCont() {
           return raise(e);
         });
       }), function(v) {
         return mconst(f(), v);
       });
     };
-  if (!defs.scope)
-    defs.scope = defs.block; 
   if (!alt) {
     if (plus && empty)
-      alt = defs.alt = function() {
+      alt = defs.alt = function alt() {
         var i, j, len, cur;
         //TODO: maybe balance it
         if (!arguments.length)
@@ -303,28 +310,44 @@ function completeMonad(defs) {
       };
   }
   if (!empty && alt)
-    defs.empty = function() { return alt(); };
+    defs.empty = function empty() { return alt(); };
   if (!plus && alt)
-    plus = defs.plus = function(a, b) { return alt(a, b); };
+    plus = defs.plus = function plus(a, b) { return alt(a, b); };
   if (!defs.opt && plus)
-    defs.opt = function(v) { return plus(v, pure()); }
+    defs.opt = function opt(v) { return plus(v, pure()); }
   if (!mconst)
-    mconst = defs["const"] = function(a,arg) {
+    mconst = defs["const"] = function _const(a,arg) {
       return map(a, function() { return arg; });
     };
   if (!unshiftTo)
-    unshiftTo = defs.unshiftTo = function(a, arg) {
+    unshiftTo = defs.unshiftTo = function unshiftTo(a, arg) {
         return map(a, function(v) {
           arg.push(v);
           return arg;
         });
     };
   if (!defs.unpack)
-    defs.unpack = function(v) { return v; };
+    defs.unpack = function unpack(v) { return v; };
   if (!defs.pack)
-    defs.pack = function(v) { return v; };
+    defs.pack = function pack(v) { return v; };
   if (!defs.options)
     defs.options = {};
+  if (!seq) {
+    seq = defs.seq = function(f) {
+      var i = f();
+      function walk(v) {
+        var n = i.next(v);
+        return n.done ? pure(v) : bind(n.value, walk);
+      }
+      return walk();
+    }
+  }
+  if (!defs.runSeq)
+    defs.runSeq = function(f) {
+      return run(function() { return seq(f()); });
+    }
+  if (!defs.scope && defs.block)
+    defs.scope = defs.block;
   return defs;
 }
 
@@ -370,9 +393,27 @@ M.run = function(defs, fun) {
   var args = Array.from(arguments);
   args.shift();
   return liftContext(defs,function() {
-    return context.run.map(context,args);
+    return context.run.apply(context,args);
   })();
 };
+
+/** 
+ * Takes iterable returning effectful values, binds them passing values
+ * from the previous steps into `next` argument
+ *
+ * @function M.seq
+ * @param {Iterable} seq iterable returning effectful values 
+ */
+M.seq = function(i) {
+  return context.seq(i);
+};
+
+M.runSeq = function(def, fun) {
+  arguments[0] = function() {
+    return def.seq(fun());
+  }
+  return M.run.apply(null, arguments);
+}
 
 /**
  * Simple replacement for ES2015 arguments spread. Takes function receiving 
@@ -726,44 +767,53 @@ M.completePrototype = function(defs, proto, overwrite) {
  */
 M.addControlByToken = function(inner) {
   var errTag = {}, res = inner.cloneDefs(), imap = inner.map,
+      iraise = inner.raise, ihandle = inner.handle,
       ibind = inner.bind, ipure = inner.pure, icoerce = inner.coerce;
   function Unwind(val, tag1) {
     this.val = val;
     this.tag = tag1;
     this.unwindToken = true;
   }
-  res.map = function(a, f) {
-    return imap(a, function(v) {
-      if (v != null && v.unwindToken)
-        return v;
-      return f(v);
-    });
-  };
-  res.bind = function(a, f) {
-    return ibind(a, function(v) {
-      if (v != null && v.unwindToken)
-        return ipure(v);
-      return f(v);
-    });
-  };
   res.repeat = inner.repeat;
   res.forPar = inner.forPar;
-  res.block = function(body) {
-    var brk, bv, m, tag;
-    tag = {};
-    brk = function(arg) {
-      return ipure(new Unwind(arg, tag));
+  if (ihandle) {
+    res.bind = ibind,
+    res.map = imap,
+    res.raise = iraise;
+    res.handle = function(a, f) {
+      return ihandle(a, function(v) {
+        if (v != null && v.unwindToken)
+          return iraise(v);
+        return f(v);
+      });
     };
-    bv = body(brk);
-    return imap(icoerce(bv), function(v) {
-      return (v != null && v.unwindToken && v.tag === tag) ? v.val : v;
-    });
-  };
-  if (inner.handle) {
-    res.raise = inner.raise;
-    res.handle = inner.handle;
     res["finally"] = inner["finally"];
+    res.scope = res.block = function(body) {
+      var brk, bv, m, tag;
+      tag = {};
+      brk = function(arg) {
+        return iraise(new Unwind(arg, tag));
+      };
+      bv = body(brk);
+      return ihandle(bv, function(v) {
+        return (v != null && v.unwindToken && v.tag === tag) ? ipure(v.val) : iraise(v);
+      });
+    };
   } else {
+    res.map = function(a, f) {
+      return imap(a, function(v) {
+        if (v != null && v.unwindToken)
+          return v;
+        return f(v);
+      });
+    };
+    res.bind = function(a, f) {
+      return ibind(a, function(v) {
+        if (v != null && v.unwindToken)
+          return ipure(v);
+        return f(v);
+      });
+    };
     res.raise = function(e) {
       return new Unwind(e, errTag);
     };
@@ -777,10 +827,21 @@ M.addControlByToken = function(inner) {
       });
     };
     res["finally"] = function(a, f) {
-      return ibind(a, function(v) {
-        return imap(f(), function() {
-          return v;
+      return ibind(a, function(v1) {
+        return imap(f(), function(v2) {
+          return v2 && v2.unwindToken ? v2 : v1;
         });
+      });
+    };
+    res.scope = res.block = function(body) {
+      var brk, bv, m, tag;
+      tag = {};
+      brk = function(arg) {
+        return ipure(new Unwind(arg, tag));
+      };
+      bv = body(brk);
+      return ibind(bv, function(v) {
+        return (v != null && v.unwindToken && v.tag === tag) ? ipure(v.val) : ipure(v);
       });
     };
   }
@@ -800,34 +861,38 @@ M.addControlByToken = function(inner) {
 M.addContext = function(inner, runOnly) {
   var res = inner.cloneDefs(), ibind = inner.bind, ihandle = inner.handle,
       ifin = inner["finally"], irepeat = inner.repeat,
-      iforPar = inner.forPar, irun = inner.run, iscope = inner.scope;
+      iforPar = inner.forPar, irun = inner.run, iscope = inner.scope, 
+      iseq = inner.seq, iblock = inner.block;
   res.options.context = runOnly ? "run" : true;
   res.bind = runOnly ? ibind : function(a, f) {
-    return ibind(a, liftContext1(inner,f));
+    return ibind(a, liftContext1(res,f));
   };
   res.handle = runOnly ? ihandle : function(a, f) {
-    return ihande(a, liftContext1(inner,f));
+    return ihandle(a, liftContext1(res,f));
   };
   res["finally"] = runOnly ? ifin : function(a, f) {
-    return ifin(a, liftContext1(inner,f));
+    return ifin(a, liftContext1(res,f));
   };
   res.repeat = runOnly ? irepeat : function(f, arg) {
-    return irepeat(liftContext1(inner,f), arg);
+    return irepeat(liftContext1(res,f), arg);
   };
   res.forPar = runOnly ? iforPar : function(test, body, upd, arg) {
-    return iforPar(test, liftContext1(inner,body), upd, arg);
+    return iforPar(test, liftContext1(res,body), upd, arg);
   };
   res.block = runOnly ? iblock : function(f) {
-    return iblock(liftContext1(inner,f));
+    return iblock(liftContext1(res,f));
   };
   res.scope = runOnly ? iscope : function(f) {
-    return iscope(liftContext1(inner,f));
+    return iscope(liftContext1(res,f));
   };
   res.run = function(f) {
     var args = Array.from(arguments);
-    args[0] = liftContext(inner,f);
+    args[0] = liftContext(res,f);
     return irun.apply(this, args);
   };
+  res.seq = function(f) {
+    return iseq(liftContextG(res, f));
+  }
   return res;
 };
 
@@ -856,10 +921,22 @@ M.addCoerce = function(inner, runOnly) {
       return icoerce(f(a));
     }
   }
+  function liftIterator(i) {
+    return {
+      next: function() {
+        var v = i.next();
+        if (v.done) 
+          return v;
+        return {
+          value: icoerce(v.value)
+        };
+      }
+    };
+  }
   res.liftCoerce = lift;
   res.liftCoerce1 = lift1;
   res.bind = function(a, f) { return ibind(a, lift1(f)); };
-  res.handle = function(a, f) { return ihande(a, lift1(f)); };
+  res.handle = function(a, f) { return ihandle(a, lift1(f)); };
   res["finally"] = function(a, f) { return ifin(a, lift1(f)); };
   res.repeat = function(f, arg) { return irepeat(lift1(f), arg); };
   res.forPar = function(test, body, upd, arg) {
@@ -872,6 +949,9 @@ M.addCoerce = function(inner, runOnly) {
     args[0] = lift(f);
     return irun.apply(this, args);
   };
+  res.seq = function(f) {
+    return iseq(liftIterator(f()));
+  }
   return res;
 };
 
@@ -983,7 +1063,6 @@ function wrap(inner, Wrap) {
   };
   completeMonad(res);
   res = res.cloneDefs();
-  M.completePrototype(res,Wrap.prototype);
   return res;
 }
 
@@ -1021,6 +1100,8 @@ function defaults(defs,opts) {
     defs = M.addCoerce(defs);
   if (opts.context)
     defs = M.addContext(defs, opts.context === "run");
+  if (opts.wrap)
+    M.completePrototype(defs,opts.wrap.prototype);
   return defs;
 }
 
@@ -1065,6 +1146,7 @@ function withContext(ctx, func) {
 M.liftContext = liftContext;
 M.liftContext1 = liftContext1;
 M.liftContext2 = liftContext2;
+M.liftContextG = liftContextG;
 /**
  * Turns a function into a function initializing global context to `ctx`
  * and reverting it to the old value on exit.
@@ -1088,6 +1170,24 @@ function liftContext(ctx, func) {
       context = saved;
     }
   };
+}
+
+/**
+ * Same as `liftContext` but lifts generator function.
+ *
+ * @function M.liftContextG
+ * @param {MonadDict} ctx
+ * @param {GeneratorFunction} gen
+ * @return {Function}
+ */
+function liftContextG(ctx, gen) {
+  return liftContext(ctx, function() {
+    return liftContextIterator(ctx, gen.apply(null, arguments));
+  });
+}
+
+function liftContextIterator(ctx, i) {
+  return { next: liftContext(ctx, i.next.bind(i)) };
 }
 
 function liftContext1(ctx, func) {
@@ -1208,3 +1308,4 @@ Monad.prototype.mopt = function() {
 Monad.prototype.munpack = function() {
   return context.unpack(this);
 };
+

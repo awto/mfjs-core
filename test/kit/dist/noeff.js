@@ -21,15 +21,21 @@ module.exports = function (M, it) {
                     var iter;
                     obj = {};
                     iter = M.forInIterator(obj);
-                    return M.forPar(function (iter) {
-                        return iter;
-                    }, function (iter) {
-                        i = iter.value;
-                        return def.rec('i' + i + obj[i]);
-                    }, function (iter) {
-                        iter = iter();
-                        return iter;
-                    }, iter).mapply(function () {
+                    return M.block(function (brk) {
+                        return M.repeat(function (iter) {
+                            return M(function () {
+                                if (iter) {
+                                    i = iter.value;
+                                    return def.rec('i' + i + obj[i]);
+                                } else
+                                    return brk();
+                            }()).mapply(function () {
+                                var _iter = iter;
+                                _iter = _iter();
+                                return _iter;
+                            });
+                        }, iter);
+                    }).mapply(function () {
                         def.check();
                     });
                 })).mapply(function () {
@@ -47,15 +53,21 @@ module.exports = function (M, it) {
                         c: 3
                     };
                     iter = M.forInIterator(obj);
-                    return M.forPar(function (iter) {
-                        return iter;
-                    }, function (iter) {
-                        i = iter.value;
-                        return def.rec('i' + i + obj[i]);
-                    }, function (iter) {
-                        iter = iter();
-                        return iter;
-                    }, iter).mbind(function () {
+                    return M.block(function (brk) {
+                        return M.repeat(function (iter) {
+                            return M(function () {
+                                if (iter) {
+                                    i = iter.value;
+                                    return def.rec('i' + i + obj[i]);
+                                } else
+                                    return brk();
+                            }()).mapply(function () {
+                                var _iter = iter;
+                                _iter = _iter();
+                                return _iter;
+                            });
+                        }, iter);
+                    }).mbind(function () {
                         return def.state.sort();
                     }).mapply(function () {
                         def.check('ia1', 'ib2', 'ic3');
@@ -74,15 +86,21 @@ module.exports = function (M, it) {
                         var iter;
                         arr = [];
                         iter = M.iteratorBuf(arr);
-                        return M.forPar(function (iter) {
-                            return iter;
-                        }, function (iter) {
-                            i = iter.value;
-                            return def.rec('i' + i + arr[i]);
-                        }, function (iter) {
-                            iter = iter();
-                            return iter;
-                        }, iter).mapply(function () {
+                        return M.block(function (brk) {
+                            return M.repeat(function (iter) {
+                                return M(function () {
+                                    if (iter) {
+                                        i = iter.value;
+                                        return def.rec('i' + i + arr[i]);
+                                    } else
+                                        return brk();
+                                }()).mapply(function () {
+                                    var _iter = iter;
+                                    _iter = _iter();
+                                    return _iter;
+                                });
+                            }, iter);
+                        }).mapply(function () {
                             def.check();
                         });
                     })).mapply(function () {
@@ -100,15 +118,21 @@ module.exports = function (M, it) {
                             3
                         ];
                         iter = M.iteratorBuf(arr);
-                        return M.forPar(function (iter) {
-                            return iter;
-                        }, function (iter) {
-                            i = iter.value;
-                            return def.rec('i' + i);
-                        }, function (iter) {
-                            iter = iter();
-                            return iter;
-                        }, iter).mbind(function () {
+                        return M.block(function (brk) {
+                            return M.repeat(function (iter) {
+                                return M(function () {
+                                    if (iter) {
+                                        i = iter.value;
+                                        return def.rec('i' + i);
+                                    } else
+                                        return brk();
+                                }()).mapply(function () {
+                                    var _iter = iter;
+                                    _iter = _iter();
+                                    return _iter;
+                                });
+                            }, iter);
+                        }).mbind(function () {
                             return def.state.sort();
                         }).mapply(function () {
                             def.check('i1', 'i2', 'i3');
@@ -126,13 +150,18 @@ module.exports = function (M, it) {
                         var iter;
                         arr = [];
                         iter = M.iterator(arr);
-                        return M.forPar(function () {
-                            return iter;
-                        }, function () {
-                            i = iter.value;
-                            return def.rec('i' + i + arr[i]);
-                        }, function () {
-                            iter = iter();
+                        return M.block(function (brk) {
+                            return M.repeat(function () {
+                                return M(function () {
+                                    if (iter) {
+                                        i = iter.value;
+                                        return def.rec('i' + i + arr[i]);
+                                    } else
+                                        return brk();
+                                }()).mapply(function () {
+                                    iter = iter();
+                                });
+                            });
                         }).mapply(function () {
                             def.check();
                         });
@@ -151,13 +180,18 @@ module.exports = function (M, it) {
                             3
                         ];
                         iter = M.iterator(arr);
-                        return M.forPar(function () {
-                            return iter;
-                        }, function () {
-                            i = iter.value;
-                            return def.rec('i' + i);
-                        }, function () {
-                            iter = iter();
+                        return M.block(function (brk) {
+                            return M.repeat(function () {
+                                return M(function () {
+                                    if (iter) {
+                                        i = iter.value;
+                                        return def.rec('i' + i);
+                                    } else
+                                        return brk();
+                                }()).mapply(function () {
+                                    iter = iter();
+                                });
+                            });
                         }).mbind(function () {
                             return def.state.sort();
                         }).mapply(function () {
@@ -176,15 +210,21 @@ module.exports = function (M, it) {
                         var iter;
                         map = new Map();
                         iter = M.iteratorBuf(map);
-                        return M.forPar(function (iter) {
-                            return iter;
-                        }, function (iter) {
-                            i = iter.value;
-                            return def.rec('i' + i[0] + i[1]);
-                        }, function (iter) {
-                            iter = iter();
-                            return iter;
-                        }, iter).mapply(function () {
+                        return M.block(function (brk) {
+                            return M.repeat(function (iter) {
+                                return M(function () {
+                                    if (iter) {
+                                        i = iter.value;
+                                        return def.rec('i' + i[0] + i[1]);
+                                    } else
+                                        return brk();
+                                }()).mapply(function () {
+                                    var _iter = iter;
+                                    _iter = _iter();
+                                    return _iter;
+                                });
+                            }, iter);
+                        }).mapply(function () {
                             def.check();
                         });
                     })).mapply(function () {
@@ -202,16 +242,23 @@ module.exports = function (M, it) {
                         }).mbind(function () {
                             return map.set('c', 3);
                         }).mbind(function () {
-                            iter = M.iteratorBuf(map);
-                            return M.forPar(function (iter) {
-                                return iter;
-                            }, function (iter) {
-                                i = iter.value;
-                                return def.rec('i' + i[0] + i[1]);
-                            }, function (iter) {
-                                iter = iter();
-                                return iter;
-                            }, iter);
+                            var _iter1;
+                            _iter1 = M.iteratorBuf(map);
+                            return M.block(function (brk) {
+                                return M.repeat(function (iter) {
+                                    return M(function () {
+                                        if (iter) {
+                                            i = iter.value;
+                                            return def.rec('i' + i[0] + i[1]);
+                                        } else
+                                            return brk();
+                                    }()).mapply(function () {
+                                        var _iter = iter;
+                                        _iter = _iter();
+                                        return _iter;
+                                    });
+                                }, _iter1);
+                            });
                         }).mapply(function () {
                             def.check('ia1', 'ib2', 'ic3');
                         });
@@ -226,7 +273,8 @@ module.exports = function (M, it) {
                 return M(def.run(function () {
                     var i;
                     return M(def.rec('b')).mbind(function () {
-                        i = 0;
+                        var _i;
+                        _i = 0;
                         return M.forPar(function (i) {
                             return i < 3;
                         }, function (i) {
@@ -234,7 +282,7 @@ module.exports = function (M, it) {
                         }, function (i) {
                             i++;
                             return i;
-                        }, i);
+                        }, _i);
                     }).mbind(function () {
                         return def.rec('a');
                     }).mapply(function () {
@@ -249,33 +297,49 @@ module.exports = function (M, it) {
                     var k;
                     var i, j;
                     return M(def.rec('b')).mbind(function () {
-                        i = 0;
+                        var _i1, _k = k;
+                        _i1 = 0;
                         j = 0;
-                        return M.forPar(M.spread(function (i, j) {
-                            return i < 3;
-                        }), M.spread(function (i, j) {
-                            k = i + j;
-                            return def.rec('i:' + i + ':' + j + ':' + k);
-                        }), M.spread(function (i, j) {
-                            i++, j += 10;
-                            return [
-                                i,
-                                j
-                            ];
-                        }), [
-                            i,
-                            j
-                        ]);
-                    }).mbind(M.spread(function (i, j) {
+                        return M.block(function (brk) {
+                            return M.repeat(function (a) {
+                                var i = a[0], j = a[1], k = a[2];
+                                return function () {
+                                    if (i < 3) {
+                                        k = i + j;
+                                        return M(def.rec('i:' + i + ':' + j + ':' + k)).mconst(k);
+                                    } else
+                                        return brk([
+                                            i,
+                                            j,
+                                            k
+                                        ]);
+                                }().mapply(function (k) {
+                                    var _i = i, _j = j;
+                                    _i++, _j += 10;
+                                    return [
+                                        _i,
+                                        _j,
+                                        k
+                                    ];
+                                });
+                            }, [
+                                _i1,
+                                j,
+                                _k
+                            ]);
+                        });
+                    }).mbind(function (a) {
+                        var i = a[0], j = a[1], k = a[2];
                         return def.rec('a:' + i + ':' + j + ':' + k);
-                    })).mapply(function () {
+                    }).mapply(function () {
                         def.check('b', 'i:0:0:0', 'i:1:10:11', 'i:2:20:22', 'a:3:30:22');
                     });
                 })).mbind(function () {
                     return def.run(function () {
                         var i;
                         return M(def.rec('b')).mbind(function () {
-                            i = 0;
+                            var _i;
+                            _i = 0;
                             return M.forPar(function (i) {
                                 return i < 3;
                             }, function (i) {
@@ -283,7 +347,7 @@ module.exports = function (M, it) {
                             }, function (i) {
                                 i++;
                                 return i;
-                            }, i);
+                            }, _i);
                         }).mbind(function (i) {
                             return def.rec('a:' + i);
                         }).mapply(function () {
@@ -302,7 +366,8 @@ module.exports = function (M, it) {
                 return M(def.run(function () {
                     var i;
                     return M(def.rec('b')).mbind(function () {
-                        i = 0;
+                        var _i;
+                        _i = 0;
                         return M.forPar(function (i) {
                             return i < cnt;
                         }, function (i) {
@@ -310,7 +375,7 @@ module.exports = function (M, it) {
                         }, function (i) {
                             i++;
                             return i;
-                        }, i);
+                        }, _i);
                     }).mbind(function () {
                         return def.rec('a');
                     }).mapply(function () {
@@ -327,39 +392,39 @@ module.exports = function (M, it) {
                         var i;
                         var j;
                         return M(def.rec('bi')).mbind(function () {
-                            i = 0;
+                            var _i1;
+                            _i1 = 0;
                             return M.block(function (brk) {
-                                return M.repeat(M.spread(function (i, j) {
+                                return M.repeat(function (a) {
+                                    var i = a[0], j = a[1];
                                     return function () {
                                         if (i < 3)
                                             return M(def.rec('bj:' + i + ':' + j)).mbind(function () {
-                                                return function (j) {
-                                                    j = 0;
-                                                    return M.forPar(function (j) {
-                                                        return j < 30;
-                                                    }, function (j) {
-                                                        return def.rec('j:' + i + ':' + j);
-                                                    }, function (j) {
-                                                        j += 10;
-                                                        return j;
-                                                    }, j);
-                                                }(j);
+                                                var _j = j;
+                                                _j = 0;
+                                                return M.forPar(function (j) {
+                                                    return j < 30;
+                                                }, function (j) {
+                                                    return def.rec('j:' + i + ':' + j);
+                                                }, function (j) {
+                                                    j += 10;
+                                                    return j;
+                                                }, _j);
                                             }).mbind(function (j) {
                                                 return M(def.rec('aj:' + i + ':' + j)).mconst(j);
                                             });
                                         else
                                             return brk();
                                     }().mapply(function (j) {
-                                        return function (i) {
-                                            i++;
-                                            return [
-                                                i,
-                                                j
-                                            ];
-                                        }(i);
+                                        var _i = i;
+                                        _i++;
+                                        return [
+                                            _i,
+                                            j
+                                        ];
                                     });
-                                }), [
-                                    i,
+                                }, [
+                                    _i1,
                                     j
                                 ]);
                             });
@@ -378,13 +443,16 @@ module.exports = function (M, it) {
                             var i;
                             var j;
                             return M(def.rec('bi')).mbind(function () {
-                                i = 0;
+                                var _i1;
+                                _i1 = 0;
                                 return M.block(function (brk) {
-                                    return M.repeat(M.spread(function (i, j) {
+                                    return M.repeat(function (a) {
+                                        var i = a[0], j = a[1];
                                         return function () {
                                             if (i < 3)
                                                 return M(def.rec('bj:' + i)).mbind(function () {
-                                                    j = 0;
+                                                    var _j1;
+                                                    _j1 = 0;
                                                     return M.block(function (brk1) {
                                                         return M.repeat(function (j) {
                                                             return M.block(function (cont1) {
@@ -401,12 +469,11 @@ module.exports = function (M, it) {
                                                                 else
                                                                     return brk1(j);
                                                             }).mapply(function () {
-                                                                return function (j) {
-                                                                    j += 10;
-                                                                    return j;
-                                                                }(j);
+                                                                var _j = j;
+                                                                _j += 10;
+                                                                return _j;
                                                             });
-                                                        }, j);
+                                                        }, _j1);
                                                     });
                                                 }).mbind(function (j) {
                                                     return M(def.rec('aj:' + i)).mconst(j);
@@ -414,16 +481,15 @@ module.exports = function (M, it) {
                                             else
                                                 return brk();
                                         }().mapply(function (j) {
-                                            return function (i) {
-                                                i++;
-                                                return [
-                                                    i,
-                                                    j
-                                                ];
-                                            }(i);
+                                            var _i = i;
+                                            _i++;
+                                            return [
+                                                _i,
+                                                j
+                                            ];
                                         });
-                                    }), [
-                                        i,
+                                    }, [
+                                        _i1,
                                         j
                                     ]);
                                 });
@@ -442,13 +508,16 @@ module.exports = function (M, it) {
                                 var i;
                                 var j;
                                 return M(def.rec('bi')).mbind(function () {
-                                    i = 0;
+                                    var _i1;
+                                    _i1 = 0;
                                     return M.block(function (labBrk) {
-                                        return M.repeat(M.spread(function (i, j) {
+                                        return M.repeat(function (a) {
+                                            var i = a[0], j = a[1];
                                             return M.block(function (labCont) {
                                                 if (i < 3)
                                                     return M(def.rec('bj:' + i)).mbind(function () {
-                                                        j = 0;
+                                                        var _j1;
+                                                        _j1 = 0;
                                                         return M.block(function (brk) {
                                                             return M.repeat(function (j) {
                                                                 return function () {
@@ -465,12 +534,11 @@ module.exports = function (M, it) {
                                                                     else
                                                                         return brk(j);
                                                                 }().mapply(function () {
-                                                                    return function (j) {
-                                                                        j += 10;
-                                                                        return j;
-                                                                    }(j);
+                                                                    var _j = j;
+                                                                    _j += 10;
+                                                                    return _j;
                                                                 });
-                                                            }, j);
+                                                            }, _j1);
                                                         });
                                                     }).mbind(function (j) {
                                                         return M(def.rec('aj:' + i)).mconst(j);
@@ -478,16 +546,15 @@ module.exports = function (M, it) {
                                                 else
                                                     return labBrk();
                                             }).mapply(function (j) {
-                                                return function (i) {
-                                                    i++;
-                                                    return [
-                                                        i,
-                                                        j
-                                                    ];
-                                                }(i);
+                                                var _i = i;
+                                                _i++;
+                                                return [
+                                                    _i,
+                                                    j
+                                                ];
                                             });
-                                        }), [
-                                            i,
+                                        }, [
+                                            _i1,
                                             j
                                         ]);
                                     });
@@ -510,7 +577,8 @@ module.exports = function (M, it) {
                         return M(def.rec('bi')).mbind(function () {
                             return M.block(function (lab) {
                                 return M(def.rec('bj')).mbind(function () {
-                                    j = 0;
+                                    var _j1;
+                                    _j1 = 0;
                                     return M.block(function (brk) {
                                         return M.repeat(function (j) {
                                             return M.block(function (cont) {
@@ -527,12 +595,11 @@ module.exports = function (M, it) {
                                                 else
                                                     return brk();
                                             }).mapply(function () {
-                                                return function (j) {
-                                                    j += 10;
-                                                    return j;
-                                                }(j);
+                                                var _j = j;
+                                                _j += 10;
+                                                return _j;
                                             });
-                                        }, j);
+                                        }, _j1);
                                     });
                                 }).mbind(function () {
                                     return def.rec('aj');
@@ -602,7 +669,8 @@ module.exports = function (M, it) {
                         var i;
                         var j;
                         return M(def.rec('bi')).mbind(function () {
-                            i = 0;
+                            var _i1;
+                            _i1 = 0;
                             return M.block(function (labBrk) {
                                 return M.repeat(function (i) {
                                     return M.block(function (labCont) {
@@ -649,12 +717,11 @@ module.exports = function (M, it) {
                                         else
                                             return labBrk(i);
                                     }).mapply(function () {
-                                        return function (i) {
-                                            i++;
-                                            return i;
-                                        }(i);
+                                        var _i = i;
+                                        _i++;
+                                        return _i;
                                     });
-                                }, i);
+                                }, _i1);
                             });
                         }).mbind(function (i) {
                             return def.rec('ai' + i + ':' + j);
@@ -666,64 +733,62 @@ module.exports = function (M, it) {
                             var i;
                             var j;
                             return M(def.rec('bi:' + i + ':' + j)).mbind(function () {
-                                return function (i) {
-                                    i = 0;
-                                    return M.block(function (labBrk) {
-                                        return M.repeat(function (i) {
-                                            return M.block(function (labCont) {
-                                                if (i < 3)
-                                                    return M.coerce(function () {
-                                                        return M(def.rec('bj:' + i)).mbind(function () {
-                                                            j = 0;
-                                                            return M.block(function (brk) {
-                                                                return M.repeat(function () {
-                                                                    return function () {
-                                                                        if (j < 40)
-                                                                            return M.coerce(function () {
-                                                                                return M(function () {
-                                                                                    if (j === 10)
-                                                                                        return labCont();
-                                                                                }()).mbind(function () {
-                                                                                    if (j === 30)
-                                                                                        return M.raise(new Error('z'));
-                                                                                }).mbind(function () {
-                                                                                    return def.rec(i + j);
-                                                                                });
-                                                                            }).mhandle(function (e) {
-                                                                                return M(def.rec('c1:' + e.message + ':' + i + ':' + j)).mbind(function () {
-                                                                                    return labBrk(i);
-                                                                                }).mbind(function () {
-                                                                                    return def.rec('c1:' + e.message);
-                                                                                });
-                                                                            }).mfinally(function () {
-                                                                                return def.rec('f1:' + i + ':' + j);
+                                var _i1 = i;
+                                _i1 = 0;
+                                return M.block(function (labBrk) {
+                                    return M.repeat(function (i) {
+                                        return M.block(function (labCont) {
+                                            if (i < 3)
+                                                return M.coerce(function () {
+                                                    return M(def.rec('bj:' + i)).mbind(function () {
+                                                        j = 0;
+                                                        return M.block(function (brk) {
+                                                            return M.repeat(function () {
+                                                                return function () {
+                                                                    if (j < 40)
+                                                                        return M.coerce(function () {
+                                                                            return M(function () {
+                                                                                if (j === 10)
+                                                                                    return labCont();
+                                                                            }()).mbind(function () {
+                                                                                if (j === 30)
+                                                                                    return M.raise(new Error('z'));
+                                                                            }).mbind(function () {
+                                                                                return def.rec(i + j);
                                                                             });
-                                                                        else
-                                                                            return brk();
-                                                                    }().mapply(function () {
-                                                                        j += 10;
-                                                                    });
+                                                                        }).mhandle(function (e) {
+                                                                            return M(def.rec('c1:' + e.message + ':' + i + ':' + j)).mbind(function () {
+                                                                                return labBrk(i);
+                                                                            }).mbind(function () {
+                                                                                return def.rec('c1:' + e.message);
+                                                                            });
+                                                                        }).mfinally(function () {
+                                                                            return def.rec('f1:' + i + ':' + j);
+                                                                        });
+                                                                    else
+                                                                        return brk();
+                                                                }().mapply(function () {
+                                                                    j += 10;
                                                                 });
                                                             });
-                                                        }).mbind(function () {
-                                                            return def.rec('aj:' + i + ':' + j);
                                                         });
-                                                    }).mhandle(function (e) {
-                                                        return def.rec('cj:' + e.message + ':' + i + ':' + j);
-                                                    }).mfinally(function () {
-                                                        return def.rec('fj:' + i + ':' + j);
+                                                    }).mbind(function () {
+                                                        return def.rec('aj:' + i + ':' + j);
                                                     });
-                                                else
-                                                    return labBrk(i);
-                                            }).mapply(function () {
-                                                return function (i) {
-                                                    i++;
-                                                    return i;
-                                                }(i);
-                                            });
-                                        }, i);
-                                    });
-                                }(i);
+                                                }).mhandle(function (e) {
+                                                    return def.rec('cj:' + e.message + ':' + i + ':' + j);
+                                                }).mfinally(function () {
+                                                    return def.rec('fj:' + i + ':' + j);
+                                                });
+                                            else
+                                                return labBrk(i);
+                                        }).mapply(function () {
+                                            var _i = i;
+                                            _i++;
+                                            return _i;
+                                        });
+                                    }, _i1);
+                                });
                             }).mbind(function (i) {
                                 return def.rec('ai' + i + ':' + j);
                             }).mapply(function () {
@@ -754,6 +819,58 @@ module.exports = function (M, it) {
                     def.done();
                 });
             });
+            context('with break in finally', function () {
+                it('shold cancel previous break', function (def) {
+                    return M(def.run(function () {
+                        return M(def.rec('a')).mbind(function () {
+                            return M.block(function (l1) {
+                                return M(def.rec('l1')).mbind(function () {
+                                    return M.block(function (l2) {
+                                        return M.coerce(function () {
+                                            return M(def.rec('l2')).mbind(l1);
+                                        }).mfinally(function () {
+                                            return M(def.rec('f1')).mbind(l2);
+                                        });
+                                    });
+                                }).mbind(function () {
+                                    return def.rec('al2');
+                                });
+                            });
+                        }).mbind(function () {
+                            return def.rec('al1');
+                        }).mapply(function () {
+                            def.check('a', 'l1', 'l2', 'f1', 'al2', 'al1');
+                        });
+                    })).mapply(function () {
+                        def.done();
+                    });
+                });
+                it('shold cancel previous throw', function (def) {
+                    return M(def.run(function () {
+                        return M(def.rec('a')).mbind(function () {
+                            return M.block(function (l1) {
+                                return M(def.rec('l1')).mbind(function () {
+                                    return M.coerce(function () {
+                                        return M(def.rec('error')).mbind(function () {
+                                            return M.raise(new Error('e'));
+                                        });
+                                    }).mfinally(function () {
+                                        return M(def.rec('fin')).mbind(l1);
+                                    });
+                                }).mbind(function () {
+                                    return def.rec('at');
+                                });
+                            });
+                        }).mbind(function () {
+                            return def.rec('al1');
+                        }).mapply(function () {
+                            def.check('a', 'l1', 'error', 'fin', 'al1');
+                        });
+                    })).mapply(function () {
+                        def.done();
+                    });
+                });
+            });
             context('with variables modifications', function () {
                 it('should have the same semantics as js', function (def) {
                     return M(def.run(function () {
@@ -761,108 +878,109 @@ module.exports = function (M, it) {
                         var j;
                         i = 8;
                         return M(def.rec('bi:' + i + ':' + j)).mbind(function () {
-                            return function (i) {
-                                i -= 8;
-                                return M(def.rec('ii:' + i++)).mbind(function (b) {
-                                    return function (i) {
-                                        i = (b, 0);
-                                        return M.block(function (labBrk) {
-                                            return M.repeat(M.spread(function (i, j) {
-                                                return M.block(function (labCont) {
-                                                    return M(def.rec('ic:' + ++i)).mbind(function (b1) {
-                                                        if (b1, i < 5)
-                                                            return M.coerce(function () {
-                                                                return M(def.rec('bj:' + i)).mbind(function () {
-                                                                    return function (i) {
-                                                                        j = 0;
-                                                                        return M.block(function (brk) {
-                                                                            return M.repeat(M.spread(function (i, j) {
-                                                                                return function () {
-                                                                                    if (j < 40)
-                                                                                        return M.coerce(function () {
-                                                                                            i -= 1;
-                                                                                            return M(function () {
-                                                                                                if (j === 10)
-                                                                                                    return labCont([
-                                                                                                        i,
-                                                                                                        j
-                                                                                                    ]);
-                                                                                            }()).mbind(function () {
-                                                                                                if (j === 30)
-                                                                                                    return M.raise(new Error('z'));
-                                                                                            }).mbind(function () {
-                                                                                                return M(def.rec(i + j)).mconst(i);
-                                                                                            });
-                                                                                        }).mhandle(function (e) {
-                                                                                            return M(def.rec('c1:' + e.message)).mbind(function () {
-                                                                                                return labBrk([
-                                                                                                    i,
-                                                                                                    j
-                                                                                                ]);
-                                                                                            }).mbind(function () {
-                                                                                                return def.rec('c1:' + e.message);
-                                                                                            });
-                                                                                        }).mfinally(function () {
-                                                                                            return def.rec('f1');
-                                                                                        }).mconst(i);
-                                                                                    else
-                                                                                        return brk([
+                            var _i2 = i;
+                            _i2 -= 8;
+                            return M(def.rec('ii:' + _i2++)).mbind(function (b) {
+                                var _i1 = _i2;
+                                _i1 = (b, 0);
+                                return M.block(function (labBrk) {
+                                    return M.repeat(function (a) {
+                                        var i = a[0], j = a[1];
+                                        return M.block(function (labCont) {
+                                            return M(def.rec('ic:' + ++i)).mbind(function (b1) {
+                                                if (b1, i < 5)
+                                                    return M.coerce(function () {
+                                                        return M(def.rec('bj:' + i)).mbind(function () {
+                                                            var _i = i, _j1;
+                                                            _j1 = 0;
+                                                            return M.block(function (brk) {
+                                                                return M.repeat(function (a) {
+                                                                    var i = a[0], j = a[1];
+                                                                    return function () {
+                                                                        if (j < 40)
+                                                                            return M.coerce(function () {
+                                                                                i -= 1;
+                                                                                return M(function () {
+                                                                                    if (j === 10)
+                                                                                        return labCont([
                                                                                             i,
                                                                                             j
                                                                                         ]);
-                                                                                }().mapply(function (i) {
-                                                                                    return function (j) {
-                                                                                        j += 10;
-                                                                                        return [
-                                                                                            i,
-                                                                                            j
-                                                                                        ];
-                                                                                    }(j);
+                                                                                }()).mbind(function () {
+                                                                                    if (j === 30)
+                                                                                        return M.raise(new Error('z'));
+                                                                                }).mbind(function () {
+                                                                                    return M(def.rec(i + j)).mconst(i);
                                                                                 });
-                                                                            }), [
+                                                                            }).mhandle(function (e) {
+                                                                                return M(def.rec('c1:' + e.message)).mbind(function () {
+                                                                                    return labBrk([
+                                                                                        i,
+                                                                                        j
+                                                                                    ]);
+                                                                                }).mbind(function () {
+                                                                                    return def.rec('c1:' + e.message);
+                                                                                });
+                                                                            }).mfinally(function () {
+                                                                                return def.rec('f1');
+                                                                            }).mconst(i);
+                                                                        else
+                                                                            return brk([
                                                                                 i,
                                                                                 j
                                                                             ]);
-                                                                        });
-                                                                    }(i);
-                                                                }).mbind(M.spread(function (i, j) {
-                                                                    return M(def.rec('aj:' + i + ':' + j)).mconst([
-                                                                        i,
-                                                                        j
-                                                                    ]);
-                                                                }));
-                                                            }).mhandle(function (e) {
-                                                                return def.rec('cj' + e.message);
-                                                            }).mfinally(function () {
-                                                                return def.rec('fj');
-                                                            }).mconst([
+                                                                    }().mapply(function (i) {
+                                                                        var _j = j;
+                                                                        _j += 10;
+                                                                        return [
+                                                                            i,
+                                                                            _j
+                                                                        ];
+                                                                    });
+                                                                }, [
+                                                                    _i,
+                                                                    _j1
+                                                                ]);
+                                                            });
+                                                        }).mbind(function (a) {
+                                                            var i = a[0], j = a[1];
+                                                            return M(def.rec('aj:' + i + ':' + j)).mconst([
                                                                 i,
                                                                 j
                                                             ]);
-                                                        else
-                                                            return labBrk([
-                                                                i,
-                                                                j
-                                                            ]);
-                                                    });
-                                                }).mbind(M.spread(function (i, j) {
-                                                    return M(def.rec('iu:' + (i += 2))).mconst([
+                                                        });
+                                                    }).mhandle(function (e) {
+                                                        return def.rec('cj' + e.message);
+                                                    }).mfinally(function () {
+                                                        return def.rec('fj');
+                                                    }).mconst([
                                                         i,
                                                         j
                                                     ]);
-                                                }));
-                                            }), [
+                                                else
+                                                    return labBrk([
+                                                        i,
+                                                        j
+                                                    ]);
+                                            });
+                                        }).mbind(function (a) {
+                                            var i = a[0], j = a[1];
+                                            return M(def.rec('iu:' + (i += 2))).mconst([
                                                 i,
                                                 j
                                             ]);
                                         });
-                                    }(i);
+                                    }, [
+                                        _i1,
+                                        j
+                                    ]);
                                 });
-                            }(i);
-                        }).mbind(M.spread(function (i, j) {
+                            });
+                        }).mbind(function (a) {
+                            var i = a[0], j = a[1];
                             i -= 3;
                             return def.rec('ai' + i + ':' + j);
-                        })).mapply(function () {
+                        }).mapply(function () {
                             def.check('bi:8:undefined', 'ii:0', 'ic:1', 'bj:1', 0, 'f1', 'f1', 'fj', 'iu:1', 'ic:2', 'bj:2', 1, 'f1', 'f1', 'fj', 'iu:2', 'ic:3', 'bj:3', 2, 'f1', 'f1', 'fj', 'iu:3', 'ic:4', 'bj:4', 3, 'f1', 'f1', 'fj', 'iu:4', 'ic:5', 'ai2:10');
                         });
                     })).mapply(function () {
