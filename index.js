@@ -144,19 +144,18 @@ function cloneDefs(from, defs) {
   fcoerce = from.coerce;
   if (!defs)
     defs = fcoerce ? function(v) { return fcoerce(v); } : {};
-  defs.coerce = fcoerce;
-  defs.pure = from.pure;
+  cloneBasic(from,defs);
   defs.bind = from.bind;
   defs.block = from.block;
   defs.scope = from.scope;
   defs.map = from.map;
-  defs.raise = from.raise;
   defs.handle = from.handle;
   defs["finally"] = from["finally"];
   defs.pair = from.pair;
   defs.arr = from.arr;
   defs.empty = from.empty;
   defs.alt = from.alt;
+  defs.opt = from.opt;
   defs.plus = from.plus;
   defs.repeat = from.repeat;
   defs.forPar = from.forPar;
@@ -169,13 +168,23 @@ function cloneDefs(from, defs) {
   defs["const"] = from["const"];
   defs.unshiftTo = from.unshiftTo;
   defs.cloneDefs = from.cloneDefs;
-  defs.options = {}
-  for(i in from.options)
-    defs.options[i] = from.options[i];
   defs.addCoerce = from.addCoerce;
   defs.addContext = from.addContext;
   defs.seq = from.seq;
   return defs;
+}
+
+function cloneBasic(from, defs) {
+  defs.coerce = from.coerce;
+  defs.pure = from.pure;
+  defs.raise = from.raise;
+  defs.arr = from.arr;
+  defs.empty = from.empty;
+  defs.alt = from.alt;
+  defs.opt = from.opt;
+  defs.plus = from.plus;
+  defs.pack = from.pack;
+  defs.unpack = from.unpack;
 }
 
 /**
@@ -202,7 +211,7 @@ function completeMonad(defs, opts) {
       run = defs.run,
       handle = defs.handle,
       raise = defs.raise
-      ;
+  ;
   if (!pure)
     throw new Error("pure function must defined");
   if (!coerce)
@@ -278,6 +287,7 @@ function completeMonad(defs, opts) {
       }
       return forParBody(arg, null);
     };
+  
   if (!defs.reify)
     defs.reify = function reify(v) { return v(); };
   if (!defs.reflect)
@@ -330,8 +340,6 @@ function completeMonad(defs, opts) {
     defs.unpack = function unpack(v) { return v; };
   if (!defs.pack)
     defs.pack = function pack(v) { return v; };
-  if (!defs.options)
-    defs.options = {};
   if (!seq) {
     seq = defs.seq = function(f) {
       var i = f();
@@ -766,7 +774,7 @@ M.completePrototype = function(defs, proto, overwrite) {
  * @return {MonadDict} monad definition with the new functionality
  */
 M.addControlByToken = function(inner) {
-  var errTag = {}, res = inner.cloneDefs(), imap = inner.map,
+  var errTag = {}, res = {}, imap = inner.map,
       iraise = inner.raise, ihandle = inner.handle,
       ibind = inner.bind, ipure = inner.pure, icoerce = inner.coerce;
   function Unwind(val, tag1) {
@@ -774,12 +782,13 @@ M.addControlByToken = function(inner) {
     this.tag = tag1;
     this.unwindToken = true;
   }
-  res.repeat = inner.repeat;
-  res.forPar = inner.forPar;
+  cloneBasic(inner,res);
   if (ihandle) {
     res.bind = ibind,
     res.map = imap,
     res.raise = iraise;
+    res.repeat = inner.repeat;
+    res.forPar = inner.forPar;
     res.handle = function(a, f) {
       return ihandle(a, function(v) {
         if (v != null && v.unwindToken)
@@ -815,7 +824,7 @@ M.addControlByToken = function(inner) {
       });
     };
     res.raise = function(e) {
-      return new Unwind(e, errTag);
+      return ipure(new Unwind(e, errTag));
     };
     res.handle = function(a, f) {
       return ibind(a, function(v) {
@@ -845,7 +854,7 @@ M.addControlByToken = function(inner) {
       });
     };
   }
-  return res;
+  return completeMonad(res).cloneDefs();
 };
 
 /**
@@ -859,14 +868,15 @@ M.addControlByToken = function(inner) {
  * @return {MonadDict} monad definition with the new functionality
  */
 M.addContext = function(inner, runOnly) {
-  var res = inner.cloneDefs(), ibind = inner.bind, ihandle = inner.handle,
-      ifin = inner["finally"], irepeat = inner.repeat,
+  var res = {}, ibind = inner.bind, ihandle = inner.handle,
+      ifin = inner["finally"], irepeat = inner.repeat, ipure = inner.pure,
       iforPar = inner.forPar, irun = inner.run, iscope = inner.scope, 
-      iseq = inner.seq, iblock = inner.block;
-  res.options.context = runOnly ? "run" : true;
+      iseq = inner.seq, iblock = inner.block, imap = inner.map;
   res.bind = runOnly ? ibind : function(a, f) {
     return ibind(a, liftContext1(res,f));
   };
+  cloneBasic(inner,res);
+  res.map = imap;
   res.handle = runOnly ? ihandle : function(a, f) {
     return ihandle(a, liftContext1(res,f));
   };
@@ -893,7 +903,7 @@ M.addContext = function(inner, runOnly) {
   res.seq = function(f) {
     return iseq(liftContextG(res, f));
   }
-  return res;
+  return completeMonad(res).cloneDefs();
 };
 
 /**
@@ -904,11 +914,10 @@ M.addContext = function(inner, runOnly) {
  * @return {MonadDict} monad definition with the new functionality
  */
 M.addCoerce = function(inner, runOnly) {
-  var res = inner.cloneDefs(), ibind = inner.bind, ihandle = inner.handle,
+  var res = {}, ibind = inner.bind, ihandle = inner.handle, ipure = inner.pure,
       ifin = inner["finally"], irepeat = inner.repeat, iscope = inner.scope,
       iforPar = inner.forPar, irun = inner.run, icoerce = inner.coerce,
-      iblock = inner.block;
-  res.options.coerce = true;
+      iblock = inner.block, imap = inner.map;
   if (!icoerce)
     throw new Error("no coerce function");
   function lift(f) {
@@ -933,9 +942,11 @@ M.addCoerce = function(inner, runOnly) {
       }
     };
   }
+  cloneBasic(inner,res);
   res.liftCoerce = lift;
   res.liftCoerce1 = lift1;
   res.bind = function(a, f) { return ibind(a, lift1(f)); };
+  res.map = imap;
   res.handle = function(a, f) { return ihandle(a, lift1(f)); };
   res["finally"] = function(a, f) { return ifin(a, lift1(f)); };
   res.repeat = function(f, arg) { return irepeat(lift1(f), arg); };
@@ -952,7 +963,7 @@ M.addCoerce = function(inner, runOnly) {
   res.seq = function(f) {
     return iseq(liftIterator(f()));
   }
-  return res;
+  return completeMonad(res);
 };
 
 M.wrap = wrap;
@@ -971,6 +982,11 @@ M.wrap = wrap;
  * @return {MonadDict}
  */
 function wrap(inner, Wrap) {
+  function M(i) {
+    this.inner = i;
+  }
+  if (Wrap === true)
+    Wrap = M;
   var coerce, unpack, res = {}, ipure = inner.pure, ibind = inner.bind,
       imap = inner.map, ihandle = inner.handle, iraise = inner.raise,
       ifin = inner["finally"], ipair = inner.pair, iarr = inner.arr,
@@ -1061,9 +1077,7 @@ function wrap(inner, Wrap) {
       }));
     }));
   };
-  completeMonad(res);
-  res = res.cloneDefs();
-  return res;
+  return completeMonad(res).cloneDefs();
 }
 
 M.defaults = defaults;
